@@ -39,8 +39,9 @@ class Hauptfenster(QMainWindow):
         self.month_dropdown.currentIndexChanged.connect(self.datenLadenSpeichern)
         self.year_dropdown.currentIndexChanged.connect(self.datenLadenSpeichern)
         self.buchungstabelle.itemChanged.connect(self.speichernAlsJson)
-        self.buchungstabelle.cellChanged.connect(self.handleCellChange)
         self.buchungstabelle.cellChanged.connect(self.updateKontobezeichnung)
+        self.buchungstabelle.itemChanged.connect(self.handleItemChanged)
+
 
     def initUI(self):
         self.setWindowFlags(Qt.FramelessWindowHint)
@@ -223,7 +224,14 @@ class Hauptfenster(QMainWindow):
                 return
         event.ignore()
 
+    def handleItemChanged(self, item):
+        # This method will be called whenever an item in the table is changed
+        # Check if the item is in one of the relevant columns (Eingang, Ausgang, Prozent)
+        if item.column() in [5, 6, 8]:
+            self.updateUmsatzsteuer(item)
+
     def handleCellChange(self, row, column):
+        #print(f"Cell changed in row {row}, column {column}")
         # Verhindere, dass die Funktion ausgeführt wird, wenn die Tabelle gerade befüllt wird
         if self.isAddingRow or self.buchungstabelle.currentRow() == -1:
             return
@@ -400,6 +408,44 @@ class Hauptfenster(QMainWindow):
                 json.dump(datenZuSpeichern, file, indent=4)
         except Exception as e:
             print(f"Ein Fehler ist aufgetreten beim Speichern der Daten: {e}")
+
+    def updateUmsatzsteuer(self, changed_item):
+        row = changed_item.row()
+        eingang_item = self.buchungstabelle.item(row, 5)  # Eingang is in column 5
+        ausgang_item = self.buchungstabelle.item(row, 6)  # Ausgang is in column 6
+        prozent_item = self.buchungstabelle.item(row, 8)  # Prozent is in column 8
+        umsatzsteuer_item = self.buchungstabelle.item(row, 9)  # Umsatzsteuer is in column 9
+
+        # Get the text from the relevant cells
+        eingang_text = eingang_item.text().strip() if eingang_item else ''
+        ausgang_text = ausgang_item.text().strip() if ausgang_item else ''
+        prozent_text = prozent_item.text().strip() if prozent_item else ''
+
+        # Ensure that all necessary fields have values
+        if (eingang_text or ausgang_text) and prozent_text:
+            eingang = float(eingang_text) if eingang_text else 0.0
+            ausgang = float(ausgang_text) if ausgang_text else 0.0
+            prozent = float(prozent_text)
+
+            if prozent != 0:
+                umsatzsteuer = ((eingang + ausgang) / (100 + prozent)) * prozent
+                formatted_umsatzsteuer = "{:.2f}".format(umsatzsteuer)  # Format the Umsatzsteuer value
+
+                if umsatzsteuer_item:  # Check if umsatzsteuer_item exists
+                    umsatzsteuer_item.setText(formatted_umsatzsteuer)
+                else:
+                    # If umsatzsteuer_item doesn't exist, create a new item and set the text
+                    umsatzsteuer_item = QTableWidgetItem(formatted_umsatzsteuer)
+                    self.buchungstabelle.setItem(row, 9, umsatzsteuer_item)
+            else:
+                if umsatzsteuer_item:  # Check if umsatzsteuer_item exists
+                    umsatzsteuer_item.setText('')
+        else:
+            if umsatzsteuer_item:  # Check if umsatzsteuer_item exists
+                umsatzsteuer_item.setText('')
+
+
+
 
     def closeEvent(self, event):
         self.speichernAlsJson()
