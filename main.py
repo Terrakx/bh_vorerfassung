@@ -5,6 +5,9 @@ import json
 from PyQt5.QtWidgets import QApplication, QMainWindow, QWidget, QVBoxLayout, QLabel, QComboBox, QHBoxLayout, QTableWidget, QTableWidgetItem, QPushButton, QHeaderView, QGridLayout, QDateEdit, QMessageBox, QStyledItemDelegate, QLineEdit
 from PyQt5.QtGui import QRegExpValidator
 from PyQt5.QtCore import Qt, QRegExp
+from PyQt5.QtCore import QSignalBlocker
+
+os.makedirs('data', exist_ok=True)
 
 class ExtendedNumericDelegate(QStyledItemDelegate):
     def __init__(self, column, parent=None):
@@ -32,9 +35,12 @@ class Hauptfenster(QMainWindow):
         self.isAddingRow = False
         self.buchungstabelle.cellChanged.connect(self.handleCellChange)
         self.ladenAusJson() 
+        self.loadKontoplan()
         self.month_dropdown.currentIndexChanged.connect(self.datenLadenSpeichern)
         self.year_dropdown.currentIndexChanged.connect(self.datenLadenSpeichern)
         self.buchungstabelle.itemChanged.connect(self.speichernAlsJson)
+        self.buchungstabelle.cellChanged.connect(self.handleCellChange)
+        self.buchungstabelle.cellChanged.connect(self.updateKontobezeichnung)
 
     def initUI(self):
         self.setWindowFlags(Qt.FramelessWindowHint)
@@ -79,6 +85,16 @@ class Hauptfenster(QMainWindow):
         self.buchungsart_dropdown.setFixedWidth(150)  # Legen Sie die gewünschte Breite fest, z.B. 150 Pixel
         buchungseinstellung_layout.addWidget(buchungseinstellung_label, 0, 0, 2, 1)  # Label erstreckt sich über 2 Reihen
         buchungseinstellung_layout.addWidget(self.buchungsart_dropdown, 0, 2, 2, 8)  # Dropdown-Feld erstreckt sich über 8 Spalten
+
+        einstiegsdaten_layout.addLayout(buchungseinstellung_layout)
+
+        # Layout for Kontoplan dropdown
+        kontoplan_label = QLabel("Kontoplan:")
+        self.kontoplan_dropdown = QComboBox()
+        self.kontoplan_dropdown.addItems(["Standard", "Land- und Forstwirtschaft", "Vermietung"])
+        self.kontoplan_dropdown.setFixedWidth(150)
+        buchungseinstellung_layout.addWidget(kontoplan_label, 2, 0, 2, 1)  # Label extends over 2 rows
+        buchungseinstellung_layout.addWidget(self.kontoplan_dropdown, 2, 2, 2, 8)  # Dropdown field extends over 8 columns
 
         einstiegsdaten_layout.addLayout(buchungseinstellung_layout)
 
@@ -154,6 +170,40 @@ class Hauptfenster(QMainWindow):
         except Exception as e:
             print(f"Fehler beim Laden des Stylesheets: {e}")
             return ""
+
+    def loadKontoplan(self):
+        try:
+            with open('kontoplan.json', 'r') as file:
+                self.kontoplan_data = json.load(file)
+        except Exception as e:
+            QMessageBox.critical(self, "Fehler beim Laden des Kontoplans", f"Ein Fehler ist aufgetreten: {e}")
+            self.kontoplan_data = {"Kontoplan": []}  # Set an empty Kontoplan as a fallback
+
+    # Add this slot function to your Hauptfenster class
+    def updateKontobezeichnung(self, row, column):
+        if column == 3:  # Check if the change occurred in the "Kontonummer" column
+            kontonummer_item = self.buchungstabelle.item(row, column)
+            if kontonummer_item:
+                kontonummer = kontonummer_item.text()
+                selected_kontoplan = self.kontoplan_dropdown.currentText()
+                
+                # Find the corresponding "Kontobezeichnung" in the selected Kontoplan
+                kontobezeichnung = ""
+                for kontoplan in self.kontoplan_data["Kontoplan"]:
+                    if kontoplan["KontenplanName"] == selected_kontoplan:
+                        for konten in kontoplan["Konten"]:
+                            if konten["Kontonummer"] == kontonummer:
+                                kontobezeichnung = konten["Bezeichnung"]
+                                break
+                
+                # Update the "Konto" field
+                konto_item = self.buchungstabelle.item(row, 4)
+                if konto_item:
+                    # Block signals temporarily to prevent infinite recursion
+                    with QSignalBlocker(self.buchungstabelle):
+                        konto_item.setText(kontobezeichnung)
+   
+
     def dragEnterEvent(self, event):
         if event.mimeData().hasUrls():
             for url in event.mimeData().urls():
@@ -262,17 +312,57 @@ class Hauptfenster(QMainWindow):
         self.show()
 
     def datenLadenSpeichern(self):
-        # Aktuelle Daten speichern
-        self.speichernAlsJson()
-        # Daten für den neuen Monat/Jahr laden
+        # Clear the table before loading new data
+        self.buchungstabelle.setRowCount(0)
+
+        # Load the data for the selected month/year if the file exists
         self.ladenAusJson()
+        monatIndex = self.month_dropdown.currentIndex() + 1
+        jahr = self.year_dropdown.currentText()
+        dateipfad = f'data/data_{monatIndex:02d}-{jahr}.json'
+
+        # If the file doesn't exist, create a new one
+        if not os.path.exists(dateipfad):
+            self.speichernAlsJson()
+
+    def isDataChanged(self):
+        # Compare the current data with the data loaded from the JSON file
+        monatIndex = self.month_dropdown.currentIndex() + 1
+        jahr = self.year_dropdown.currentText()
+        dateipfad = f'data/data_{monatIndex:02d}-{jahr}.json'
+
+        if os.path.exists(dateipfad):
+            try:
+                with open(dateipfad, 'r') as file:
+                    loaded_data = json.load(file)
+                    current_data = self.getCurrentTableData()
+                    return loaded_data != current_data
+            except json.JSONDecodeError:
+                print("Fehler beim Lesen der JSON-Datei. Die Datei ist möglicherweise beschädigt.")
+        return False
+
+    def getCurrentTableData(self):
+        data = []
+        for row in range(self.buchungstabelle.rowCount()):
+            row_data = []
+            for column in range(self.buchungstabelle.columnCount()):
+                item = self.buchungstabelle.item(row, column)
+                if item is not None:
+                    row_data.append(item.text())
+                else:
+                    row_data.append("")
+            data.append(row_data)
+        return data
+
 
     def ladenAusJson(self):
         monatIndex = self.month_dropdown.currentIndex() + 1
-        #monat = self.month_dropdown.currentText()
         jahr = self.year_dropdown.currentText()
         dateipfad = f'data/data_{monatIndex:02d}-{jahr}.json'
-        self.buchungstabelle.setRowCount(0)  # Leere die Tabelle vor dem Laden neuer Daten
+        
+        # Leere die Tabelle vor dem Laden neuer Daten
+        self.buchungstabelle.setRowCount(0)
+
         if os.path.exists(dateipfad):
             try:
                 with open(dateipfad, 'r') as file:
@@ -281,13 +371,14 @@ class Hauptfenster(QMainWindow):
                         row = self.buchungstabelle.rowCount()
                         self.buchungstabelle.insertRow(row)
                         for column, value in enumerate(row_data):
-                            item = QTableWidgetItem(value)
+                            item = QTableWidgetItem(str(value))  # Konvertiere value zu String, falls nötig
                             self.buchungstabelle.setItem(row, column, item)
             except json.JSONDecodeError:
                 print("Fehler beim Lesen der JSON-Datei. Die Datei ist möglicherweise beschädigt.")
         else:
+            # Keine Daten für diesen Monat/Jahr gefunden, die Tabelle bleibt leer
             print("Keine Daten für diesen Monat/Jahr gefunden.")
-
+            
     def speichernAlsJson(self):
         monatIndex = self.month_dropdown.currentIndex() + 1
         #monat = self.month_dropdown.currentText()
