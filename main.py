@@ -204,7 +204,6 @@ class Hauptfenster(QMainWindow):
                     with QSignalBlocker(self.buchungstabelle):
                         konto_item.setText(kontobezeichnung)
    
-
     def dragEnterEvent(self, event):
         if event.mimeData().hasUrls():
             for url in event.mimeData().urls():
@@ -254,7 +253,6 @@ class Hauptfenster(QMainWindow):
                 if eingangItem:
                     eingangItem.setText('')
 
-
     def handlePdfDrop(self, file_path):
         # Extrahieren des ausgewählten Jahres und Monats
         selectedYear = self.year_dropdown.currentText()
@@ -297,7 +295,6 @@ class Hauptfenster(QMainWindow):
             if column == 9:  # Angenommen, die Umsatzsteuer ist in Spalte 8
                 item.setFlags(item.flags() & ~Qt.ItemIsEditable)  # Sperrt die Zelle für die Bearbeitung
             self.buchungstabelle.setItem(rowCount, column, item)
-
 
     def closeApplication(self):
         self.close()
@@ -361,7 +358,6 @@ class Hauptfenster(QMainWindow):
                     row_data.append("")
             data.append(row_data)
         return data
-
 
     def ladenAusJson(self):
         monatIndex = self.month_dropdown.currentIndex() + 1
@@ -443,9 +439,6 @@ class Hauptfenster(QMainWindow):
         else:
             if umsatzsteuer_item:  # Check if umsatzsteuer_item exists
                 umsatzsteuer_item.setText('')
-
-
-
 
     def closeEvent(self, event):
         self.speichernAlsJson()
