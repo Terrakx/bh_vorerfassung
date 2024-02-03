@@ -1,6 +1,7 @@
 import sys
 import os
 import shutil
+import json
 from PyQt5.QtWidgets import QApplication, QMainWindow, QWidget, QVBoxLayout, QLabel, QComboBox, QHBoxLayout, QTableWidget, QTableWidgetItem, QPushButton, QHeaderView, QGridLayout, QDateEdit, QMessageBox, QStyledItemDelegate, QLineEdit
 from PyQt5.QtGui import QRegExpValidator
 from PyQt5.QtCore import Qt, QRegExp
@@ -30,6 +31,10 @@ class Hauptfenster(QMainWindow):
         self.oldPos = None
         self.isAddingRow = False
         self.buchungstabelle.cellChanged.connect(self.handleCellChange)
+        self.ladenAusJson() 
+        self.month_dropdown.currentIndexChanged.connect(self.datenLadenSpeichern)
+        self.year_dropdown.currentIndexChanged.connect(self.datenLadenSpeichern)
+        self.buchungstabelle.itemChanged.connect(self.speichernAlsJson)
 
     def initUI(self):
         self.setWindowFlags(Qt.FramelessWindowHint)
@@ -221,7 +226,7 @@ class Hauptfenster(QMainWindow):
                 return
 
             # Eintrag in der Tabelle erstellen
-            self.buchungstabelle.setItem(row, 9, QTableWidgetItem(os.path.join(save_path, os.path.basename(file_path))))
+            self.buchungstabelle.setItem(row, 10, QTableWidgetItem(os.path.join(save_path, os.path.basename(file_path))))
             QMessageBox.information(self, "PDF Hinzugefügt", f"PDF '{os.path.basename(file_path)}' wurde erfolgreich in Zeile {row + 1} hinzugefügt.")
         except Exception as e:
             QMessageBox.critical(self, "Fehler beim Hinzufügen der PDF", f"Ein Fehler ist aufgetreten: {e}")
@@ -255,6 +260,59 @@ class Hauptfenster(QMainWindow):
         self.setWindowTitle("Vorerfassung Buchungen")
         self.setGeometry(100, 100, 1680, 900)
         self.show()
+
+    def datenLadenSpeichern(self):
+        # Aktuelle Daten speichern
+        self.speichernAlsJson()
+        # Daten für den neuen Monat/Jahr laden
+        self.ladenAusJson()
+
+    def ladenAusJson(self):
+        monatIndex = self.month_dropdown.currentIndex() + 1
+        #monat = self.month_dropdown.currentText()
+        jahr = self.year_dropdown.currentText()
+        dateipfad = f'data/data_{monatIndex:02d}-{jahr}.json'
+        self.buchungstabelle.setRowCount(0)  # Leere die Tabelle vor dem Laden neuer Daten
+        if os.path.exists(dateipfad):
+            try:
+                with open(dateipfad, 'r') as file:
+                    daten = json.load(file)
+                    for row_data in daten:
+                        row = self.buchungstabelle.rowCount()
+                        self.buchungstabelle.insertRow(row)
+                        for column, value in enumerate(row_data):
+                            item = QTableWidgetItem(value)
+                            self.buchungstabelle.setItem(row, column, item)
+            except json.JSONDecodeError:
+                print("Fehler beim Lesen der JSON-Datei. Die Datei ist möglicherweise beschädigt.")
+        else:
+            print("Keine Daten für diesen Monat/Jahr gefunden.")
+
+    def speichernAlsJson(self):
+        monatIndex = self.month_dropdown.currentIndex() + 1
+        #monat = self.month_dropdown.currentText()
+        jahr = self.year_dropdown.currentText()
+        datenZuSpeichern = []
+        for row in range(self.buchungstabelle.rowCount()):
+            row_data = []
+            for column in range(self.buchungstabelle.columnCount()):
+                item = self.buchungstabelle.item(row, column)
+                if item is not None:
+                    row_data.append(item.text())
+                else:
+                    row_data.append("")
+            datenZuSpeichern.append(row_data)
+
+        dateipfad = f'data/data_{monatIndex:02d}-{jahr}.json'
+        try:
+            with open(dateipfad, 'w') as file:
+                json.dump(datenZuSpeichern, file, indent=4)
+        except Exception as e:
+            print(f"Ein Fehler ist aufgetreten beim Speichern der Daten: {e}")
+
+    def closeEvent(self, event):
+        self.speichernAlsJson()
+        event.accept()  # Schließt das Fenster
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
