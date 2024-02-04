@@ -1,0 +1,101 @@
+/* styles.css */
+
+QMainWindow {
+    font-family: 'Sergio UI', sans-serif;
+    background-color: #202128; /* Dunkler Hintergrund */
+    color: #d5d6da; /* Helle Schrift */
+    font-size: 18px; /* Erhöhung der Schriftgröße */
+}
+
+QLabel {
+    color: #d5d6da;
+    font-size: 16px; /* Erhöhung der Schriftgröße */
+}
+
+QComboBox {
+    background-color: #1d1e24; /* Dunkles Dropdown-Menü */
+    color: #fff;
+    border-radius: 10px;
+    padding: 5px;
+    min-height: 25px;
+    font-size: 16px; /* Erhöhung der Schriftgröße */
+}
+
+QComboBox::drop-down {
+    subcontrol-origin: padding;
+    subcontrol-position: top right;
+    width: 25px;
+    border-left-width: 1px;
+    border-left-color: darkgray;
+    border-left-style: solid;
+    border-top-right-radius: 3px;
+    border-bottom-right-radius: 3px;
+}
+
+QComboBox::down-arrow {
+    image: url('img/down.png');
+}
+
+QTableWidget {
+    color: #d5d6da;
+    background-color: #292a31;
+    gridline-color: #3e3f4b;
+    border-radius: 5px;
+    font-size: 16px;
+}
+/*
+QTableWidget::item {
+    color: #d5d6da;
+    padding: 15px;
+    border-color: #3e3f4b;
+    font-size: 16px;
+}
+*/
+QTableWidget QHeaderView::section {
+    background-color: #7204bb;
+    color: #fff;
+    padding-left: 4px;
+    border: 1px solid #3e3f4b;
+    spacing: 10px;
+    font-size: 16px;
+}
+
+QTableWidget QHeaderView {
+    background-color: #292a31;
+    color: #d5d6da;
+}
+
+QTableWidget::item:selected {
+    background-color: #9a03ff;
+    color: #fff;
+}
+
+QPushButton {
+    background-color: #7204bb;
+    color: #e6e6e6;
+    border-radius: 2px;
+    padding: 5px;
+    border: none;
+    font-size: 16px; /* Erhöhung der Schriftgröße */
+}
+
+QPushButton:hover {
+    background-color: #9a03ff;
+}
+
+QLineEdit {
+    background-color: #2E2E2E; 
+    color: #FFFFFF; 
+    border: 2px solid #555555; 
+    border-radius: 5px; 
+    padding: 5px;
+}
+
+QLineEdit:focus {
+    border: 2px solid #4285F4; 
+}
+
+QLineEdit:disabled {
+    background-color: #3c3c3c;
+    color: #787878;
+}
