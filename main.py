@@ -2,10 +2,12 @@ import sys
 import os
 import shutil
 import json
-from PyQt5.QtWidgets import QApplication, QMainWindow, QWidget, QVBoxLayout, QLabel, QComboBox, QHBoxLayout, QTableWidget, QTableWidgetItem, QPushButton, QHeaderView, QGridLayout, QDateEdit, QMessageBox, QStyledItemDelegate, QLineEdit
+from PyQt5.QtWidgets import QApplication, QMainWindow, QFrame, QWidget, QVBoxLayout, QLabel, QComboBox, QHBoxLayout, QTableWidget, QTableWidgetItem, QPushButton, QHeaderView, QGridLayout, QDateEdit, QMessageBox, QStyledItemDelegate, QLineEdit
 from PyQt5.QtGui import QRegExpValidator
 from PyQt5.QtCore import Qt, QRegExp
 from PyQt5.QtCore import QSignalBlocker
+
+# -*- coding: utf-8 -*-
 
 os.makedirs('data', exist_ok=True)
 
@@ -41,11 +43,18 @@ class Hauptfenster(QMainWindow):
         self.buchungstabelle.itemChanged.connect(self.speichernAlsJson)
         self.buchungstabelle.cellChanged.connect(self.updateKontobezeichnung)
         self.buchungstabelle.itemChanged.connect(self.handleItemChanged)
+        # Set the alignment for the columns you want to right-align
+        right_aligned_columns = [5, 6, 7, 8, 9]  # Replace with the actual column indices
+
+        for column in right_aligned_columns:
+            for row in range(self.buchungstabelle.rowCount()):
+                item = self.buchungstabelle.item(row, column)
+                if item:
+                    item.setTextAlignment(Qt.AlignRight | Qt.AlignVCenter)
 
 
     def initUI(self):
         self.setWindowFlags(Qt.FramelessWindowHint)
-
         widget = QWidget()
         self.setCentralWidget(widget)
         layout = QVBoxLayout()
@@ -63,9 +72,7 @@ class Hauptfenster(QMainWindow):
         self.month_dropdown.setFixedWidth(150)
         buchungsmonat_layout.addWidget(buchungsmonat_label, 0, 0, 2, 1)  # Label erstreckt sich über 2 Reihen
         buchungsmonat_layout.addWidget(self.month_dropdown, 0, 2, 2, 8)  # Dropdown-Feld erstreckt sich über 8 Spalten
-
         einstiegsdaten_layout.addLayout(buchungsmonat_layout)
-
         # Layout für Buchungsjahr
         buchungsjahr_layout = QGridLayout()
         buchungsjahr_label = QLabel("Buchungsjahr:")
@@ -74,10 +81,7 @@ class Hauptfenster(QMainWindow):
         self.year_dropdown.setFixedWidth(150)
         buchungsjahr_layout.addWidget(buchungsjahr_label, 0, 0, 2, 1)  # Label erstreckt sich über 2 Reihen
         buchungsjahr_layout.addWidget(self.year_dropdown, 0, 2, 2, 8)  # Dropdown-Feld erstreckt sich über 8 Spalten
-
         einstiegsdaten_layout.addLayout(buchungsjahr_layout)
-
-
         # Layout für Buchungseinstellung
         buchungseinstellung_layout = QGridLayout()
         buchungseinstellung_label = QLabel("Buchungseinstellung:")
@@ -86,9 +90,7 @@ class Hauptfenster(QMainWindow):
         self.buchungsart_dropdown.setFixedWidth(150)  # Legen Sie die gewünschte Breite fest, z.B. 150 Pixel
         buchungseinstellung_layout.addWidget(buchungseinstellung_label, 0, 0, 2, 1)  # Label erstreckt sich über 2 Reihen
         buchungseinstellung_layout.addWidget(self.buchungsart_dropdown, 0, 2, 2, 8)  # Dropdown-Feld erstreckt sich über 8 Spalten
-
         einstiegsdaten_layout.addLayout(buchungseinstellung_layout)
-
         # Layout for Kontoplan dropdown
         kontoplan_label = QLabel("Kontoplan:")
         self.kontoplan_dropdown = QComboBox()
@@ -96,9 +98,7 @@ class Hauptfenster(QMainWindow):
         self.kontoplan_dropdown.setFixedWidth(150)
         buchungseinstellung_layout.addWidget(kontoplan_label, 2, 0, 2, 1)  # Label extends over 2 rows
         buchungseinstellung_layout.addWidget(self.kontoplan_dropdown, 2, 2, 2, 8)  # Dropdown field extends over 8 columns
-
         einstiegsdaten_layout.addLayout(buchungseinstellung_layout)
-
         # Vorerfassung Section
         vorerfassung_layout = QVBoxLayout()
         vorerfassung_headline = QLabel("Vorerfassung")
@@ -106,7 +106,7 @@ class Hauptfenster(QMainWindow):
         self.buchungstabelle.setColumnCount(11)
         self.buchungstabelle.setHorizontalHeaderLabels(["Tag", "Belegnummer", "Buchungstext", "Kontonummer", "Konto","Eingang", "Ausgang", "StC", "Prozent", "Umsatzsteuer", "Dokument"])
         self.buchungstabelle.horizontalHeader().setStretchLastSection(True)
-        self.buchungstabelle.setColumnWidth(0, 110)
+        self.buchungstabelle.setColumnWidth(0, 60)
         self.buchungstabelle.setColumnWidth(1, 110)
         self.buchungstabelle.setColumnWidth(2, 300)
         self.buchungstabelle.setColumnWidth(3, 110)
@@ -114,25 +114,18 @@ class Hauptfenster(QMainWindow):
         self.buchungstabelle.setColumnWidth(5, 120)
         self.buchungstabelle.setColumnWidth(6, 120)
         self.buchungstabelle.setColumnWidth(7, 65)
-
         self.belegdatumDelegate = ExtendedNumericDelegate('Tag')
         self.buchungstabelle.setItemDelegateForColumn(0, self.belegdatumDelegate)
-
         self.kontonummerDelegate = ExtendedNumericDelegate('Kontonummer')
         self.buchungstabelle.setItemDelegateForColumn(3, self.kontonummerDelegate)
-
         self.eingangDelegate = ExtendedNumericDelegate('Eingang')
         self.buchungstabelle.setItemDelegateForColumn(5, self.eingangDelegate)
-
         self.ausgangDelegate = ExtendedNumericDelegate('Ausgang')
         self.buchungstabelle.setItemDelegateForColumn(6, self.ausgangDelegate) 
-
         self.stcDelegate = ExtendedNumericDelegate('StC')
         self.buchungstabelle.setItemDelegateForColumn(7, self.stcDelegate)
-
         self.prozentDelegate = ExtendedNumericDelegate('Prozent')
         self.buchungstabelle.setItemDelegateForColumn(8, self.prozentDelegate)
-
         self.buchungstabelle.setColumnWidth(8, 80)
         self.buchungstabelle.setColumnWidth(9, 120)
         self.buchungstabelle.setColumnWidth(10, 150)
@@ -144,23 +137,19 @@ class Hauptfenster(QMainWindow):
         self.buchungstabelle.cellChanged.connect(self.handleCellChange)
         vorerfassung_layout.addWidget(vorerfassung_headline)
         vorerfassung_layout.addWidget(self.buchungstabelle)
-
         self.addRowButton = QPushButton("Zeile manuell hinzufügen")
         self.addRowButton.clicked.connect(self.addTableRow)
         vorerfassung_layout.addWidget(self.addRowButton)
-
         layout.addLayout(einstiegsdaten_layout)
         layout.addLayout(vorerfassung_layout)
-
         # Button-Layout für "Beenden" Button
         button_layout = QVBoxLayout()
         layout.addLayout(button_layout)
-
         self.beendenButton = QPushButton("Beenden")
         self.beendenButton.clicked.connect(self.closeApplication)
         self.beendenButton.setStyleSheet("QPushButton { background-color: red; color: white; font-weight: bold; }")
         button_layout.addWidget(self.beendenButton)
-
+        #Stylesheet Import
         stylesheet = self.loadStylesheet("style.css")
         self.setStyleSheet(stylesheet)
 
@@ -174,7 +163,7 @@ class Hauptfenster(QMainWindow):
 
     def loadKontoplan(self):
         try:
-            with open('kontoplan.json', 'r') as file:
+            with open('kontoplan.json', 'r', encoding='utf-8') as file:
                 self.kontoplan_data = json.load(file)
         except Exception as e:
             QMessageBox.critical(self, "Fehler beim Laden des Kontoplans", f"Ein Fehler ist aufgetreten: {e}")
