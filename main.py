@@ -3,7 +3,7 @@ import os
 import shutil
 import json
 from PyQt5.QtWidgets import QApplication, QMainWindow, QFrame, QWidget, QVBoxLayout, QLabel, QComboBox, QHBoxLayout, QTableWidget, QTableWidgetItem, QPushButton, QHeaderView, QGridLayout, QDateEdit, QMessageBox, QStyledItemDelegate, QLineEdit
-from PyQt5.QtGui import QRegExpValidator
+from PyQt5.QtGui import QRegExpValidator, QFont, QFontDatabase
 from PyQt5.QtCore import Qt, QRegExp, QLocale
 from PyQt5.QtCore import QSignalBlocker
 
@@ -61,6 +61,7 @@ class Hauptfenster(QMainWindow):
         # Einstiegsdaten Section
         einstiegsdaten_layout = QVBoxLayout()
         einstiegsdaten_headline = QLabel("Einstiegsdaten")
+        einstiegsdaten_headline.setObjectName("EinstiegsdatenLabel")  # Objekt-Identifer setzen
         einstiegsdaten_layout.addWidget(einstiegsdaten_headline)
         self.setAcceptDrops(True)
         # Layout für Buchungsmonat
@@ -101,9 +102,10 @@ class Hauptfenster(QMainWindow):
         # Vorerfassung Section
         vorerfassung_layout = QVBoxLayout()
         vorerfassung_headline = QLabel("Vorerfassung")
+        vorerfassung_headline.setObjectName("VorerfassungLabel")  # Objekt-Identifer setzen
         self.buchungstabelle = QTableWidget()
-        self.buchungstabelle.setColumnCount(11)
-        self.buchungstabelle.setHorizontalHeaderLabels(["Tag", "Belegnummer", "Buchungstext", "Kontonummer", "Konto","Eingang", "Ausgang", "StC", "Prozent", "Umsatzsteuer", "Dokument"])
+        self.buchungstabelle.setColumnCount(12)
+        self.buchungstabelle.setHorizontalHeaderLabels(["Tag", "Belegnummer", "Buchungstext", "Kontonummer", "Konto","Eingang", "Ausgang", "StC", "Prozent", "Umsatzsteuer", "Dokument", "Check"])
         self.buchungstabelle.horizontalHeader().setStretchLastSection(True)
         self.buchungstabelle.setColumnWidth(0, 60)
         self.buchungstabelle.setColumnWidth(1, 120)
@@ -127,7 +129,8 @@ class Hauptfenster(QMainWindow):
         self.buchungstabelle.setItemDelegateForColumn(8, self.prozentDelegate)
         self.buchungstabelle.setColumnWidth(8, 80)
         self.buchungstabelle.setColumnWidth(9, 120)
-        self.buchungstabelle.setColumnWidth(10, 150)
+        self.buchungstabelle.setColumnWidth(10, 200)
+        self.buchungstabelle.setColumnWidth(11, 40)
         self.buchungstabelle.setAcceptDrops(True)
         self.buchungstabelle.setDragDropOverwriteMode(False)
         self.buchungstabelle.setDragDropMode(QTableWidget.DropOnly)
@@ -211,6 +214,15 @@ class Hauptfenster(QMainWindow):
                 return
         event.ignore()
 
+    def adjustTextAlignment(self):
+        rowCount = self.buchungstabelle.rowCount()
+        for row in range(rowCount):
+            for column in range(5, 10):  # Angenommen, dies sind die Spalten von "Eingang" bis "Umsatzsteuer"
+                item = self.buchungstabelle.item(row, column)
+                if item is not None:
+                    item.setTextAlignment(Qt.AlignRight | Qt.AlignVCenter)
+
+
     def handleItemChanged(self, item):
         # This method will be called whenever an item in the table is changed
         # Check if the item is in one of the relevant columns (Eingang, Ausgang, Prozent)
@@ -218,10 +230,37 @@ class Hauptfenster(QMainWindow):
             self.updateUmsatzsteuer(item)
 
     def handleCellChange(self, row, column):
-        #print(f"Cell changed in row {row}, column {column}")
         # Verhindere, dass die Funktion ausgeführt wird, wenn die Tabelle gerade befüllt wird
         if self.isAddingRow or self.buchungstabelle.currentRow() == -1:
             return
+
+        # Prüfe, ob die Änderung in der Spalte "Eingang" oder "Ausgang" erfolgt ist
+        if column in [5, 6]:  # Angenommen, Eingang ist Spalte 5 und Ausgang ist Spalte 6
+            item = self.buchungstabelle.item(row, column)
+            if item is not None:
+                try:
+                    # Konvertiere den Textwert der Zelle in eine Fließkommazahl
+                    value = float(item.text().replace('.', '').replace(',', '.'))
+                    
+                    # Formatiere die Zahl im europäischen Format
+                    formatted_value = "{:,.2f}".format(value).replace(',', ' ').replace('.', ',').replace(' ', '.')
+                    
+                    # Aktualisiere die Zelle mit dem formatierten Wert
+                    item.setText(formatted_value)
+                    
+                    # Richte den Text in der Zelle rechtsbündig aus
+                    item.setTextAlignment(Qt.AlignRight | Qt.AlignVCenter)
+                    
+                except ValueError:
+                    # Optional: Fehlerbehandlung oder Zurücksetzen des Feldes
+                    pass
+
+        # Rechtsausrichtung für "StC", "Prozent", und "Umsatzsteuer" ohne Formatierung
+        if column in [7, 8, 9]:  # Angenommen, diese Spalten sind StC, Prozent, und Umsatzsteuer
+            item = self.buchungstabelle.item(row, column)
+            if item is not None:
+                # Richte den Text in der Zelle rechtsbündig aus
+                item.setTextAlignment(Qt.AlignRight | Qt.AlignVCenter)
 
         # Überprüfe, ob die Änderung in der Spalte "Eingang" erfolgt ist
         if column == 5:  # Angenommen, "Eingang" ist jetzt Spalte 5
@@ -240,6 +279,10 @@ class Hauptfenster(QMainWindow):
                 eingangItem = self.buchungstabelle.item(row, 5)
                 if eingangItem:
                     eingangItem.setText('')
+
+        # Hier könnten weitere Aktionen eingefügt werden, z.B. die automatische Berechnung der Umsatzsteuer
+        # basierend auf den aktualisierten Werten in "Eingang" oder "Ausgang".
+
 
     def handlePdfDrop(self, file_path):
         # Extrahieren des ausgewählten Jahres und Monats
@@ -313,7 +356,7 @@ class Hauptfenster(QMainWindow):
         monatIndex = self.month_dropdown.currentIndex() + 1
         jahr = self.year_dropdown.currentText()
         dateipfad = f'data/data_{monatIndex:02d}-{jahr}.json'
-
+        self.adjustTextAlignment()
         # If the file doesn't exist, create a new one
         if not os.path.exists(dateipfad):
             self.speichernAlsJson()
@@ -395,7 +438,9 @@ class Hauptfenster(QMainWindow):
 
     def convertToFloat(self, value):
         try:
-            return float(value.replace(',', '.'))
+            # Entfernen der Tausendertrennzeichen und Ersetzen von Kommas durch Punkte
+            clean_value = value.replace('.', '').replace(',', '.')
+            return float(clean_value)
         except ValueError:
             return 0.0
 
@@ -419,12 +464,10 @@ class Hauptfenster(QMainWindow):
 
     def updateUmsatzsteuer(self, changed_item):
         row = changed_item.row()
-        # Eingang und Ausgang aus der Tabelle holen
         eingang_text = self.buchungstabelle.item(row, 5).text().strip() if self.buchungstabelle.item(row, 5) else '0'
         ausgang_text = self.buchungstabelle.item(row, 6).text().strip() if self.buchungstabelle.item(row, 6) else '0'
         prozent_text = self.buchungstabelle.item(row, 8).text().strip() if self.buchungstabelle.item(row, 8) else '0'
 
-        # Konvertiere die Textwerte in Fließkommazahlen für die Berechnung
         eingang = self.convertToFloat(eingang_text)
         ausgang = self.convertToFloat(ausgang_text)
         prozent = self.convertToFloat(prozent_text)
@@ -455,6 +498,14 @@ class Hauptfenster(QMainWindow):
 if __name__ == "__main__":
     app = QApplication(sys.argv)
     QLocale.setDefault(QLocale(QLocale.German, QLocale.Germany))
+    # Lade die Schriftart
+    fontPath = "./fonts/ProtestRiot-Regular.ttf"
+    fontId = QFontDatabase.addApplicationFont(fontPath)
+    if fontId != -1:
+        fontFamilies = QFontDatabase.applicationFontFamilies(fontId)
+        print("Geladene Schriftartenfamilien:", fontFamilies)
+    else:
+        print("Fehler beim Laden der Schriftart")
     fenster = Hauptfenster()
     fenster.start()
     sys.exit(app.exec_())
