@@ -4,12 +4,13 @@ import shutil
 import json
 from PyQt5.QtWidgets import QApplication, QMainWindow, QFrame, QWidget, QVBoxLayout, QLabel, QComboBox, QHBoxLayout, QTableWidget, QTableWidgetItem, QPushButton, QHeaderView, QGridLayout, QDateEdit, QMessageBox, QStyledItemDelegate, QLineEdit
 from PyQt5.QtGui import QRegExpValidator
-from PyQt5.QtCore import Qt, QRegExp
+from PyQt5.QtCore import Qt, QRegExp, QLocale
 from PyQt5.QtCore import QSignalBlocker
 
 # -*- coding: utf-8 -*-
 
 os.makedirs('data', exist_ok=True)
+os.makedirs('Belege', exist_ok=True)
 
 class ExtendedNumericDelegate(QStyledItemDelegate):
     def __init__(self, column, parent=None):
@@ -24,7 +25,7 @@ class ExtendedNumericDelegate(QStyledItemDelegate):
         elif self.column in ['Kontonummer', 'Prozent', 'StC']:  # Ganzzahlen für Kontonummer, Prozent und StC
             reg_ex = QRegExp("^[0-9]*$")
         elif self.column in ['Eingang', 'Ausgang']:  # Kommazahlen für Eingang und Ausgang
-            reg_ex = QRegExp("^-?\d*(\.\d+)?$")  # Achten Sie darauf, dass der Dezimaltrenner Ihrem Bedarf entspricht (\. für Punkt oder \, für Komma)
+            reg_ex = QRegExp("^-?\d*(\,\d+)?$")  # Achten Sie darauf, dass der Dezimaltrenner Ihrem Bedarf entspricht (\. für Punkt oder \, für Komma)
         validator = QRegExpValidator(reg_ex, editor)
         editor.setValidator(validator)
         return editor
@@ -45,13 +46,11 @@ class Hauptfenster(QMainWindow):
         self.buchungstabelle.itemChanged.connect(self.handleItemChanged)
         # Set the alignment for the columns you want to right-align
         right_aligned_columns = [5, 6, 7, 8, 9]  # Replace with the actual column indices
-
         for column in right_aligned_columns:
             for row in range(self.buchungstabelle.rowCount()):
                 item = self.buchungstabelle.item(row, column)
                 if item:
                     item.setTextAlignment(Qt.AlignRight | Qt.AlignVCenter)
-
 
     def initUI(self):
         self.setWindowFlags(Qt.FramelessWindowHint)
@@ -107,9 +106,9 @@ class Hauptfenster(QMainWindow):
         self.buchungstabelle.setHorizontalHeaderLabels(["Tag", "Belegnummer", "Buchungstext", "Kontonummer", "Konto","Eingang", "Ausgang", "StC", "Prozent", "Umsatzsteuer", "Dokument"])
         self.buchungstabelle.horizontalHeader().setStretchLastSection(True)
         self.buchungstabelle.setColumnWidth(0, 60)
-        self.buchungstabelle.setColumnWidth(1, 110)
+        self.buchungstabelle.setColumnWidth(1, 120)
         self.buchungstabelle.setColumnWidth(2, 300)
-        self.buchungstabelle.setColumnWidth(3, 110)
+        self.buchungstabelle.setColumnWidth(3, 140)
         self.buchungstabelle.setColumnWidth(4, 190)
         self.buchungstabelle.setColumnWidth(5, 120)
         self.buchungstabelle.setColumnWidth(6, 120)
@@ -394,39 +393,59 @@ class Hauptfenster(QMainWindow):
         except Exception as e:
             print(f"Ein Fehler ist aufgetreten beim Speichern der Daten: {e}")
 
+    def convertToFloat(self, value):
+        try:
+            return float(value.replace(',', '.'))
+        except ValueError:
+            return 0.0
+
+    def formatNumberForDisplay(self, number):
+        # Zuerst wird die Zahl in einen String mit zwei Dezimalstellen umgewandelt.
+        number_str = "{:.2f}".format(number)
+        
+        # Ersetze den Punkt durch ein Komma für das Dezimaltrennzeichen.
+        number_str = number_str.replace('.', ',')
+        
+        # Füge Tausendertrennzeichen hinzu.
+        parts = number_str.split(',')
+        before_decimal = parts[0]
+        after_decimal = parts[1] if len(parts) > 1 else '00'
+        
+        # Umkehren, Trennzeichen hinzufügen, und wieder umkehren
+        before_decimal_with_dots = ".".join([before_decimal[max(i - 3, 0):i] for i in range(len(before_decimal), 0, -3)][::-1])
+        
+        # Zusammenfügen der Teile zu einem finalen String
+        return before_decimal_with_dots + ',' + after_decimal
+
     def updateUmsatzsteuer(self, changed_item):
         row = changed_item.row()
-        eingang_item = self.buchungstabelle.item(row, 5)  # Eingang is in column 5
-        ausgang_item = self.buchungstabelle.item(row, 6)  # Ausgang is in column 6
-        prozent_item = self.buchungstabelle.item(row, 8)  # Prozent is in column 8
-        umsatzsteuer_item = self.buchungstabelle.item(row, 9)  # Umsatzsteuer is in column 9
+        # Eingang und Ausgang aus der Tabelle holen
+        eingang_text = self.buchungstabelle.item(row, 5).text().strip() if self.buchungstabelle.item(row, 5) else '0'
+        ausgang_text = self.buchungstabelle.item(row, 6).text().strip() if self.buchungstabelle.item(row, 6) else '0'
+        prozent_text = self.buchungstabelle.item(row, 8).text().strip() if self.buchungstabelle.item(row, 8) else '0'
 
-        # Get the text from the relevant cells
-        eingang_text = eingang_item.text().strip() if eingang_item else ''
-        ausgang_text = ausgang_item.text().strip() if ausgang_item else ''
-        prozent_text = prozent_item.text().strip() if prozent_item else ''
+        # Konvertiere die Textwerte in Fließkommazahlen für die Berechnung
+        eingang = self.convertToFloat(eingang_text)
+        ausgang = self.convertToFloat(ausgang_text)
+        prozent = self.convertToFloat(prozent_text)
 
-        # Ensure that all necessary fields have values
-        if (eingang_text or ausgang_text) and prozent_text:
-            eingang = float(eingang_text) if eingang_text else 0.0
-            ausgang = float(ausgang_text) if ausgang_text else 0.0
-            prozent = float(prozent_text)
+        # Berechne die Umsatzsteuer basierend auf Eingang, Ausgang und dem Steuerprozentsatz
+        if prozent != 0:
+            # Umsatzsteuer = (Eingang + Ausgang) * Prozent / 100
+            umsatzsteuer = ((eingang + ausgang) * prozent) / 100
+            formatted_umsatzsteuer = self.formatNumberForDisplay(umsatzsteuer)
 
-            if prozent != 0:
-                umsatzsteuer = ((eingang + ausgang) / (100 + prozent)) * prozent
-                formatted_umsatzsteuer = "{:.2f}".format(umsatzsteuer)  # Format the Umsatzsteuer value
-
-                if umsatzsteuer_item:  # Check if umsatzsteuer_item exists
-                    umsatzsteuer_item.setText(formatted_umsatzsteuer)
-                else:
-                    # If umsatzsteuer_item doesn't exist, create a new item and set the text
-                    umsatzsteuer_item = QTableWidgetItem(formatted_umsatzsteuer)
-                    self.buchungstabelle.setItem(row, 9, umsatzsteuer_item)
+            # Finde das Umsatzsteuer-Item in der Tabelle und setze den formatierten Wert
+            umsatzsteuer_item = self.buchungstabelle.item(row, 9)
+            if umsatzsteuer_item is None:
+                umsatzsteuer_item = QTableWidgetItem(formatted_umsatzsteuer)
+                self.buchungstabelle.setItem(row, 9, umsatzsteuer_item)
             else:
-                if umsatzsteuer_item:  # Check if umsatzsteuer_item exists
-                    umsatzsteuer_item.setText('')
+                umsatzsteuer_item.setText(formatted_umsatzsteuer)
         else:
-            if umsatzsteuer_item:  # Check if umsatzsteuer_item exists
+            # Wenn der Prozentwert 0 ist, setze die Umsatzsteuer auf ''
+            umsatzsteuer_item = self.buchungstabelle.item(row, 9)
+            if umsatzsteuer_item:
                 umsatzsteuer_item.setText('')
 
     def closeEvent(self, event):
@@ -435,6 +454,7 @@ class Hauptfenster(QMainWindow):
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
+    QLocale.setDefault(QLocale(QLocale.German, QLocale.Germany))
     fenster = Hauptfenster()
     fenster.start()
     sys.exit(app.exec_())
