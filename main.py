@@ -3,7 +3,7 @@ import os
 import shutil
 import json
 from PyQt5.QtWidgets import QApplication, QMainWindow, QFrame, QWidget, QVBoxLayout, QLabel, QComboBox, QHBoxLayout, QTableWidget, QTableWidgetItem, QPushButton, QHeaderView, QGridLayout, QDateEdit, QMessageBox, QStyledItemDelegate, QLineEdit
-from PyQt5.QtGui import QRegExpValidator, QFont, QFontDatabase
+from PyQt5.QtGui import QRegExpValidator, QFont, QFontDatabase, QIcon
 from PyQt5.QtCore import Qt, QRegExp, QLocale
 from PyQt5.QtCore import QSignalBlocker
 
@@ -38,6 +38,8 @@ class Hauptfenster(QMainWindow):
         self.isAddingRow = False
         self.buchungstabelle.cellChanged.connect(self.handleCellChange)
         self.ladenAusJson() 
+        self.validateRowsAndSetIcons()
+        self.buchungstabelle.selectionModel().selectionChanged.connect(self.onSelectionChanged)
         self.loadKontoplan()
         self.month_dropdown.currentIndexChanged.connect(self.datenLadenSpeichern)
         self.year_dropdown.currentIndexChanged.connect(self.datenLadenSpeichern)
@@ -91,6 +93,7 @@ class Hauptfenster(QMainWindow):
         buchungseinstellung_layout.addWidget(buchungseinstellung_label, 0, 0, 2, 1)  # Label erstreckt sich über 2 Reihen
         buchungseinstellung_layout.addWidget(self.buchungsart_dropdown, 0, 2, 2, 8)  # Dropdown-Feld erstreckt sich über 8 Spalten
         einstiegsdaten_layout.addLayout(buchungseinstellung_layout)
+        self.buchungsart_dropdown.currentIndexChanged.connect(self.datenLadenSpeichern)
         # Layout for Kontoplan dropdown
         kontoplan_label = QLabel("Kontoplan:")
         self.kontoplan_dropdown = QComboBox()
@@ -105,13 +108,13 @@ class Hauptfenster(QMainWindow):
         vorerfassung_headline.setObjectName("VorerfassungLabel")  # Objekt-Identifer setzen
         self.buchungstabelle = QTableWidget()
         self.buchungstabelle.setColumnCount(12)
-        self.buchungstabelle.setHorizontalHeaderLabels(["Tag", "Belegnummer", "Buchungstext", "Kontonummer", "Konto","Eingang", "Ausgang", "StC", "Prozent", "Umsatzsteuer", "Dokument", "Check"])
+        self.buchungstabelle.setHorizontalHeaderLabels(["Tag", "Belegnummer", "Buchungstext", "Kontonummer", "Konto","Eingang", "Ausgang", "StC", "Prozent", "Umsatzsteuer", "Dokument", ""])
         self.buchungstabelle.horizontalHeader().setStretchLastSection(True)
         self.buchungstabelle.setColumnWidth(0, 60)
         self.buchungstabelle.setColumnWidth(1, 120)
         self.buchungstabelle.setColumnWidth(2, 300)
         self.buchungstabelle.setColumnWidth(3, 140)
-        self.buchungstabelle.setColumnWidth(4, 190)
+        self.buchungstabelle.setColumnWidth(4, 210)
         self.buchungstabelle.setColumnWidth(5, 120)
         self.buchungstabelle.setColumnWidth(6, 120)
         self.buchungstabelle.setColumnWidth(7, 65)
@@ -129,7 +132,7 @@ class Hauptfenster(QMainWindow):
         self.buchungstabelle.setItemDelegateForColumn(8, self.prozentDelegate)
         self.buchungstabelle.setColumnWidth(8, 80)
         self.buchungstabelle.setColumnWidth(9, 120)
-        self.buchungstabelle.setColumnWidth(10, 200)
+        self.buchungstabelle.setColumnWidth(10, 250)
         self.buchungstabelle.setColumnWidth(11, 40)
         self.buchungstabelle.setAcceptDrops(True)
         self.buchungstabelle.setDragDropOverwriteMode(False)
@@ -246,11 +249,7 @@ class Hauptfenster(QMainWindow):
                     formatted_value = "{:,.2f}".format(value).replace(',', ' ').replace('.', ',').replace(' ', '.')
                     
                     # Aktualisiere die Zelle mit dem formatierten Wert
-                    item.setText(formatted_value)
-                    
-                    # Richte den Text in der Zelle rechtsbündig aus
-                    item.setTextAlignment(Qt.AlignRight | Qt.AlignVCenter)
-                    
+                    item.setText(formatted_value)   
                 except ValueError:
                     # Optional: Fehlerbehandlung oder Zurücksetzen des Feldes
                     pass
@@ -282,7 +281,6 @@ class Hauptfenster(QMainWindow):
 
         # Hier könnten weitere Aktionen eingefügt werden, z.B. die automatische Berechnung der Umsatzsteuer
         # basierend auf den aktualisierten Werten in "Eingang" oder "Ausgang".
-
 
     def handlePdfDrop(self, file_path):
         # Extrahieren des ausgewählten Jahres und Monats
@@ -326,6 +324,7 @@ class Hauptfenster(QMainWindow):
             if column == 9:  # Angenommen, die Umsatzsteuer ist in Spalte 8
                 item.setFlags(item.flags() & ~Qt.ItemIsEditable)  # Sperrt die Zelle für die Bearbeitung
             self.buchungstabelle.setItem(rowCount, column, item)
+        self.validateRowsAndSetIcons()
 
     def closeApplication(self):
         self.close()
@@ -360,6 +359,7 @@ class Hauptfenster(QMainWindow):
         # If the file doesn't exist, create a new one
         if not os.path.exists(dateipfad):
             self.speichernAlsJson()
+        self.validateRowsAndSetIcons()
 
     def isDataChanged(self):
         # Compare the current data with the data loaded from the JSON file
@@ -393,48 +393,51 @@ class Hauptfenster(QMainWindow):
     def ladenAusJson(self):
         monatIndex = self.month_dropdown.currentIndex() + 1
         jahr = self.year_dropdown.currentText()
-        dateipfad = f'data/data_{monatIndex:02d}-{jahr}.json'
-        
-        # Leere die Tabelle vor dem Laden neuer Daten
+        buchungsart = self.buchungsart_dropdown.currentText()
+
+        dateipfad = f'data/{jahr}_{monatIndex:02d}.json'
+
         self.buchungstabelle.setRowCount(0)
 
         if os.path.exists(dateipfad):
-            try:
-                with open(dateipfad, 'r') as file:
-                    daten = json.load(file)
-                    for row_data in daten:
-                        row = self.buchungstabelle.rowCount()
-                        self.buchungstabelle.insertRow(row)
-                        for column, value in enumerate(row_data):
-                            item = QTableWidgetItem(str(value))  # Konvertiere value zu String, falls nötig
-                            self.buchungstabelle.setItem(row, column, item)
-            except json.JSONDecodeError:
-                print("Fehler beim Lesen der JSON-Datei. Die Datei ist möglicherweise beschädigt.")
+            with open(dateipfad, 'r') as file:
+                gesamteDaten = json.load(file)
+                daten = gesamteDaten.get(buchungsart, [])
+
+            for row_data in daten:
+                row = self.buchungstabelle.rowCount()
+                self.buchungstabelle.insertRow(row)
+                for column, value in enumerate(row_data):
+                    item = QTableWidgetItem(str(value))
+                    self.buchungstabelle.setItem(row, column, item)
         else:
-            # Keine Daten für diesen Monat/Jahr gefunden, die Tabelle bleibt leer
-            print("Keine Daten für diesen Monat/Jahr gefunden.")
-            
+            print("Keine Daten für diesen Monat/Jahr und Buchungsart gefunden.")
+
+           
     def speichernAlsJson(self):
         monatIndex = self.month_dropdown.currentIndex() + 1
-        #monat = self.month_dropdown.currentText()
         jahr = self.year_dropdown.currentText()
-        datenZuSpeichern = []
-        for row in range(self.buchungstabelle.rowCount()):
-            row_data = []
-            for column in range(self.buchungstabelle.columnCount()):
-                item = self.buchungstabelle.item(row, column)
-                if item is not None:
-                    row_data.append(item.text())
-                else:
-                    row_data.append("")
-            datenZuSpeichern.append(row_data)
+        buchungsart = self.buchungsart_dropdown.currentText()
+        datenZuSpeichern = self.getCurrentTableData()
 
-        dateipfad = f'data/data_{monatIndex:02d}-{jahr}.json'
+        dateipfad = f'data/{jahr}_{monatIndex:02d}.json'
+
+        # Laden der existierenden Daten aus der Datei, falls vorhanden
+        if os.path.exists(dateipfad):
+            with open(dateipfad, 'r') as file:
+                gesamteDaten = json.load(file)
+        else:
+            gesamteDaten = {}
+
+        # Aktualisieren der Daten für die gewählte Buchungsart
+        gesamteDaten[buchungsart] = datenZuSpeichern
+
         try:
             with open(dateipfad, 'w') as file:
-                json.dump(datenZuSpeichern, file, indent=4)
+                json.dump(gesamteDaten, file, indent=4)
         except Exception as e:
             print(f"Ein Fehler ist aufgetreten beim Speichern der Daten: {e}")
+
 
     def convertToFloat(self, value):
         try:
@@ -490,6 +493,73 @@ class Hauptfenster(QMainWindow):
             umsatzsteuer_item = self.buchungstabelle.item(row, 9)
             if umsatzsteuer_item:
                 umsatzsteuer_item.setText('')
+
+    def validateRowsAndSetIcons(self):
+        print("Validiere Zeilen und setze Icons...")
+        rowCount = self.buchungstabelle.rowCount()
+        for row in range(rowCount):
+            isValid = self.isRowValid(row)
+            self.setCheckIcon(row, isValid)
+
+    def setCheckIcon(self, row, isValid):
+        # Definieren Sie hier die Pfade zu den Icons
+        checkIconPath = "img/check.png"  # Pfad zum "gültig" Icon, angepasst an Ihren Ordnerstruktur
+        removeIconPath = "img/remove.png"  # Pfad zum "ungültig" Icon
+        
+        # Wählen Sie das entsprechende Icon basierend auf der Gültigkeit
+        iconPath = checkIconPath if isValid else removeIconPath
+        
+        print(f"Setze Icon für Zeile {row}: {iconPath}")
+        item = self.buchungstabelle.item(row, 11)  # Angenommen, die Check-Spalte ist Spalte 11
+        if item is None:
+            item = QTableWidgetItem()
+            self.buchungstabelle.setItem(row, 11, item)
+        
+        # Überprüfen Sie, ob der Pfad absolut ist, und passen Sie ihn ggf. an
+        if not os.path.isabs(iconPath):
+            iconPath = os.path.join(os.path.dirname(__file__), iconPath)
+        
+        icon = QIcon(iconPath)
+        item.setIcon(icon)
+        if icon.isNull():
+            print(f"Fehler: Icon {iconPath} konnte nicht geladen werden.")
+        else:
+            print(f"Icon {iconPath} erfolgreich geladen.")
+
+
+    def isRowValid(self, row):
+        print(f"Überprüfe Zeile {row} auf Gültigkeit...")
+        requiredColumns = [0, 1, 2, 3]  # Tag, Belegnummer, Buchungstext, Kontonummer
+        for col in requiredColumns:
+            item = self.buchungstabelle.item(row, col)
+            if not item or not item.text().strip():
+                print(f"Zeile {row}, Spalte {col} ist ungültig.")
+                return False
+        
+        # Prüfe, ob entweder Eingang oder Ausgang befüllt ist
+        eingangItem = self.buchungstabelle.item(row, 5)
+        ausgangItem = self.buchungstabelle.item(row, 6)
+        if (eingangItem and eingangItem.text().strip()) or (ausgangItem and ausgangItem.text().strip()):
+            print(f"Zeile {row} ist gültig.")
+            return True
+        else:
+            print(f"Zeile {row} hat weder gültigen Eingang noch Ausgang.")
+            return False
+
+    def onSelectionChanged(self, selected, deselected):
+            # Hier können Sie die Logik implementieren, die ausgelöst wird, wenn die Auswahl geändert wird.
+            # Zum Beispiel die Validierung der Daten in der verlassenen Zeile und das Setzen der Icons.
+            
+            # Sie können deselected.indexes() verwenden, um die Indizes der Zellen zu erhalten, die nicht mehr ausgewählt sind.
+            # Beachten Sie, dass deselected eine QItemSelection ist, die eine oder mehrere Bereiche (QItemSelectionRange) enthalten kann.
+            # Jeder Bereich enthält die Indizes der Zellen, die zuvor ausgewählt waren, aber jetzt nicht mehr ausgewählt sind.
+            
+            if deselected.indexes():
+                # Extrahieren der Zeilennummern der zuvor ausgewählten Zellen
+                rows = set(index.row() for index in deselected.indexes())
+                for row in rows:
+                    # Führen Sie hier Ihre Validierungs- und Icon-Setzungslogik für jede verlassene Zeile aus.
+                    self.validateRowsAndSetIcons()
 
     def closeEvent(self, event):
         self.speichernAlsJson()
