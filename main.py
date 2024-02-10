@@ -191,16 +191,25 @@ class Hauptfenster(QMainWindow):
             return ""
 
     def loadUserPreferences(self):
-            try:
-                with open('user_settings.json', 'r') as config_file:
-                    config = json.load(config_file)
-                    stylesheetName = config.get("stylesheet")
-                    if stylesheetName:
-                        self.applyStylesheetByName(stylesheetName)
-            except FileNotFoundError:
-                print("Keine Benutzereinstellungen gefunden. Standard-Stylesheet wird verwendet.")
-            except json.JSONDecodeError:
-                print("Fehler beim Lesen der Benutzereinstellungen. Standard-Stylesheet wird verwendet.")
+        try:
+            with open('user_settings.json', 'r') as config_file:
+                config = json.load(config_file)
+
+                # Lade das Stylesheet, falls vorhanden
+                stylesheetName = config.get("stylesheet")
+                if stylesheetName:
+                    self.applyStylesheetByName(stylesheetName)
+
+                # Lade die Fensterposition, falls vorhanden
+                windowPosition = config.get("windowPosition")
+                if windowPosition:
+                    self.move(windowPosition['x'], windowPosition['y'])
+
+        except FileNotFoundError:
+            print("Keine Benutzereinstellungen gefunden. Standard-Stylesheet und -position werden verwendet.")
+        except json.JSONDecodeError:
+            print("Fehler beim Lesen der Benutzereinstellungen. Standard-Stylesheet und -position werden verwendet.")
+
 
     def applyStylesheetByName(self, stylesheetName):
         stylesheetNameToPathMapping = {
@@ -396,6 +405,7 @@ class Hauptfenster(QMainWindow):
     def start(self):
         self.setWindowTitle("Vorerfassung Buchungen")
         self.setGeometry(100, 100, 1680, 900)
+        self.loadUserPreferences()
         self.show()
 
     def datenLadenSpeichern(self):
@@ -618,8 +628,25 @@ class Hauptfenster(QMainWindow):
             dialog.exec_()
 
     def closeEvent(self, event):
+        self.saveWindowPosition()
         self.speichernAlsJson()
         event.accept()  # Schließt das Fenster
+
+    def saveWindowPosition(self):
+        config = {}
+        try:
+            # Versuche, bestehende Einstellungen zu laden, falls vorhanden
+            with open('user_settings.json', 'r') as config_file:
+                config = json.load(config_file)
+        except FileNotFoundError:
+            print("Konfigurationsdatei nicht gefunden. Eine neue wird erstellt.")
+        except json.JSONDecodeError:
+            print("Fehler beim Lesen der Konfigurationsdatei. Die Datei wird überschrieben.")
+
+        # Aktualisiere die Konfiguration mit der aktuellen Fensterposition
+        config['windowPosition'] = {'x': self.x(), 'y': self.y()}
+        with open('user_settings.json', 'w') as config_file:
+            json.dump(config, config_file, indent=4)
 
 class SettingsWindow(QDialog):
     def __init__(self, parent=None):
