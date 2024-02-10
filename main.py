@@ -2,7 +2,7 @@ import sys
 import os
 import shutil
 import json
-from PyQt5.QtWidgets import QApplication, QMainWindow, QFrame, QWidget, QVBoxLayout, QLabel, QComboBox, QHBoxLayout, QTableWidget, QTableWidgetItem, QPushButton, QHeaderView, QGridLayout, QDateEdit, QMessageBox, QStyledItemDelegate, QLineEdit
+from PyQt5.QtWidgets import QApplication, QMainWindow, QFrame, QDialog, QWidget, QVBoxLayout, QLabel, QComboBox, QHBoxLayout, QTableWidget, QTableWidgetItem, QPushButton, QHeaderView, QGridLayout, QDateEdit, QMessageBox, QStyledItemDelegate, QLineEdit
 from PyQt5.QtGui import QRegExpValidator, QFont, QFontDatabase, QIcon
 from PyQt5.QtCore import Qt, QRegExp, QLocale
 from PyQt5.QtCore import QSignalBlocker
@@ -66,6 +66,29 @@ class Hauptfenster(QMainWindow):
         einstiegsdaten_headline.setObjectName("EinstiegsdatenLabel")  # Objekt-Identifer setzen
         einstiegsdaten_layout.addWidget(einstiegsdaten_headline)
         self.setAcceptDrops(True)
+        # Settings Icon
+        self.settingsButton = QPushButton(QIcon("img/settings.png"), "", self)  # Pfad zum Zahnrad-Icon anpassen
+        self.settingsButton.clicked.connect(self.openSettingsDialog)
+        self.settingsButton.setToolTip("Einstellungen")
+        self.settingsButton.setStyleSheet("""
+            QPushButton { background-color: #808080; } /* Grey */
+            QPushButton:hover { background-color: #A9A9A9; } /* Light Grey on hover */
+        """)
+        self.settingsButton.resize(self.settingsButton.sizeHint())
+        # Positionieren des Buttons im Hauptfenster
+        self.settingsButton.move(1600, 10)  # Position anpassen
+        # Beenden Icon
+        self.quitButton = QPushButton(QIcon("img/beenden.png"), "", self)  # Pfad zum Beenden-Icon anpassen
+        self.quitButton.clicked.connect(self.closeApplication)
+        self.quitButton.setToolTip("Beenden")
+        self.quitButton.setStyleSheet("""
+            QPushButton { background-color: #FF0000; } /* Red */
+            QPushButton:hover { background-color: #FFCCCC; } /* Light Red on hover*/
+        """)
+        self.quitButton.resize(self.quitButton.sizeHint())
+        # Positionieren des Beenden Buttons im Hauptfenster, direkt neben dem Settings Button
+        quitButtonXPosition = self.settingsButton.x() + self.settingsButton.width() + 10  # 10 Pixel Abstand zwischen den Buttons
+        self.quitButton.move(quitButtonXPosition, 10)
         # Layout für Buchungsmonat
         buchungsmonat_layout = QGridLayout()
         buchungsmonat_label = QLabel("Buchungsmonat:")
@@ -561,9 +584,56 @@ class Hauptfenster(QMainWindow):
                     # Führen Sie hier Ihre Validierungs- und Icon-Setzungslogik für jede verlassene Zeile aus.
                     self.validateRowsAndSetIcons()
 
+    def openSettingsDialog(self):
+            dialog = SettingsWindow(self)
+            dialog.exec_()
+
     def closeEvent(self, event):
         self.speichernAlsJson()
         event.accept()  # Schließt das Fenster
+
+class SettingsWindow(QDialog):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.initUI()
+
+    def initUI(self):
+        self.setWindowTitle("Einstellungen")
+        layout = QVBoxLayout()
+
+        self.stylesheetComboBox = QComboBox()
+        # Angenommen, Sie haben eine Liste von Stylesheet-Namen
+        stylesheetNames = ["Hell", "Dunkel", "Klassisch"]
+        self.stylesheetComboBox.addItems(stylesheetNames)
+
+        applyButton = QPushButton("Anwenden")
+        applyButton.clicked.connect(self.applyStylesheet)
+
+        layout.addWidget(self.stylesheetComboBox)
+        layout.addWidget(applyButton)
+        self.setLayout(layout)
+
+    def applyStylesheet(self):
+        selectedStylesheetName = self.stylesheetComboBox.currentText()
+        # Mapping von Stylesheet-Namen zu Pfaden
+        stylesheetNameToPathMapping = {
+            "Hell": "styles/light.css",
+            "Dunkel": "styles/dark.css",
+            "Klassisch": "styles/classic.css"
+        }
+        # Zugriff auf den Pfad des ausgewählten Stylesheets mithilfe des Mappings
+        stylesheetPath = stylesheetNameToPathMapping.get(selectedStylesheetName)
+        if stylesheetPath:
+            # Pfad zu einem absoluten Pfad umwandeln, falls notwendig
+            absoluteStylesheetPath = os.path.join(os.path.dirname(__file__), stylesheetPath)
+            try:
+                with open(absoluteStylesheetPath, "r") as f:
+                    newStylesheet = f.read()
+                    self.parent().setStyleSheet(newStylesheet)
+            except Exception as e:
+                print(f"Fehler beim Laden des Stylesheets: {e}")
+        else:
+            print(f"Stylesheet {selectedStylesheetName} nicht gefunden.")
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
