@@ -3,8 +3,8 @@ import os
 import shutil
 import json
 from PyQt5.QtWidgets import QApplication, QMainWindow, QFrame, QDialog, QWidget, QVBoxLayout, QLabel, QComboBox, QHBoxLayout, QTableWidget, QTableWidgetItem, QPushButton, QHeaderView, QGridLayout, QDateEdit, QMessageBox, QStyledItemDelegate, QLineEdit
-from PyQt5.QtGui import QRegExpValidator, QFont, QFontDatabase, QIcon
-from PyQt5.QtCore import Qt, QRegExp, QLocale
+from PyQt5.QtGui import QRegExpValidator, QFont, QFontDatabase, QIcon, QColor
+from PyQt5.QtCore import Qt, QRegExp, QLocale, QObject, QEvent
 from PyQt5.QtCore import QSignalBlocker
 
 # -*- coding: utf-8 -*-
@@ -47,6 +47,8 @@ class Hauptfenster(QMainWindow):
         self.buchungstabelle.itemChanged.connect(self.speichernAlsJson)
         self.buchungstabelle.cellChanged.connect(self.updateKontobezeichnung)
         self.buchungstabelle.itemChanged.connect(self.handleItemChanged)
+        self.keyEventFilter = KeyEventFilter(self)
+        self.buchungstabelle.installEventFilter(self.keyEventFilter)
         # Set the alignment for the columns you want to right-align
         right_aligned_columns = [5, 6, 7, 8, 9]  # Replace with the actual column indices
         for column in right_aligned_columns:
@@ -623,6 +625,18 @@ class Hauptfenster(QMainWindow):
                     # Führen Sie hier Ihre Validierungs- und Icon-Setzungslogik für jede verlassene Zeile aus.
                     self.validateRowsAndSetIcons()
 
+    def openKontoplanDialog(self, row, column):
+        # Holen Sie den ausgewählten Kontenplan aus der Dropdown-Liste
+        selectedKontoplanName = self.kontoplan_dropdown.currentText()
+        dialog = KontoplanDialog(selectedKontoplanName, self)
+        if dialog.exec_() == QDialog.Accepted and dialog.selectedKontonummer:
+            # Aktualisieren Sie die Kontonummer in der Tabelle, basierend auf der Auswahl
+            item = self.buchungstabelle.item(row, column)
+            if item:
+                item.setText(dialog.selectedKontonummer)
+
+
+
     def openSettingsDialog(self):
             dialog = SettingsWindow(self)
             dialog.exec_()
@@ -654,8 +668,16 @@ class SettingsWindow(QDialog):
         self.initUI()
 
     def initUI(self):
-        self.setWindowTitle("Einstellungen")
+        self.setWindowTitle("Darstellung")
+        self.setAutoFillBackground(True)
+        p = self.palette()
+        p.setColor(self.backgroundRole(), QColor("#202128"))
+        self.setPalette(p)
         layout = QVBoxLayout()
+
+        # Label, um zu erklären, wofür das Dropdown-Menü verwendet wird
+        label = QLabel("Wählen Sie ein Design aus:")
+        layout.addWidget(label)
 
         self.stylesheetComboBox = QComboBox()
         # Angenommen, Sie haben eine Liste von Stylesheet-Namen
@@ -694,6 +716,141 @@ class SettingsWindow(QDialog):
         config = {"stylesheet": stylesheetName}
         with open('user_settings.json', 'w') as config_file:
             json.dump(config, config_file, indent=4)
+
+class KontoplanDialog(QDialog):
+    def __init__(self, kontoplanName="Standard", parent=None):
+        super().__init__(parent)
+        self.setWindowTitle("Kontoplan")
+        self.resize(900, 700)  # Fenstergröße anpassen
+        self.layout = QVBoxLayout(self)
+
+        # Tabelle für Kontoplan
+        self.table = QTableWidget(self)
+        self.table.setColumnCount(4)
+        self.table.setHorizontalHeaderLabels(["Kontonummer", "Bezeichnung", "Steuercode", "Prozent"])
+        self.table.setColumnWidth(0, 200)
+        self.table.setColumnWidth(1, 400)
+        self.table.setColumnWidth(2, 100)
+        self.table.setColumnWidth(3, 100)
+        self.table.setSelectionBehavior(QTableWidget.SelectRows)  # Ganze Zeilen auswählen
+        self.table.setEditTriggers(QTableWidget.NoEditTriggers)  # Bearbeitung deaktivieren
+        self.table.doubleClicked.connect(self.acceptOnDoubleClick)  # Doppelklick-Ereignis
+        self.layout.addWidget(self.table)
+
+        # Button-Leiste hinzufügen
+        self.buttonLayout = QHBoxLayout()
+        self.okButton = QPushButton("OK")
+        self.okButton.clicked.connect(self.accept)
+        self.cancelButton = QPushButton("Abbrechen")
+        self.cancelButton.clicked.connect(self.reject)
+        self.buttonLayout.addWidget(self.okButton)
+        self.buttonLayout.addWidget(self.cancelButton)
+        self.layout.addLayout(self.buttonLayout)
+
+        self.selectedKontonummer = None
+        self.loadKontoplan(kontoplanName)
+
+    def loadKontoplan(self, kontoplanName):
+        try:
+            with open('kontoplan.json', 'r', encoding='utf-8') as file:
+                data = json.load(file)
+                kontenGefunden = False  # Flag, um zu überprüfen, ob Konten gefunden wurden
+                letzteUeberschrift = None  # Letzte eingefügte Überschrift speichern
+                for kontoplan in data["Kontoplan"]:
+                    if kontoplan["KontenplanName"] == kontoplanName:
+                        kontenGefunden = True
+                        for konto in kontoplan["Konten"]:
+                            kontonummer = konto["Kontonummer"]
+                            # Bestimme die Überschrift basierend auf der Kontonummer
+                            ueberschrift = self.bestimmeUeberschrift(kontonummer)
+                            if ueberschrift != letzteUeberschrift:
+                                # Füge die Überschrift als neue Zeile ein
+                                self.insertHeaderRow(ueberschrift, self.table.rowCount())
+                                letzteUeberschrift = ueberschrift
+                            # Füge die Kontenzeile ein
+                            row_position = self.table.rowCount()
+                            self.table.insertRow(row_position)
+                            self.table.setItem(row_position, 0, QTableWidgetItem(konto["Kontonummer"]))
+                            self.table.setItem(row_position, 1, QTableWidgetItem(konto["Bezeichnung"]))
+                            self.table.setItem(row_position, 2, QTableWidgetItem(konto.get("StC", "")))
+                            self.table.setItem(row_position, 3, QTableWidgetItem(str(konto.get("Prozent", 0.0))))
+                        break
+                if not kontenGefunden:
+                    print(f"Keine Konten für den Kontenplan '{kontoplanName}' gefunden.")
+        except FileNotFoundError:
+            print("Kontoplan-Datei nicht gefunden.")
+        except json.JSONDecodeError:
+            print("Fehler beim Lesen der Kontoplan-Datei.")
+
+    def bestimmeUeberschrift(self, kontonummer):
+        laenge = len(kontonummer)
+        if laenge == 5:  # Für 5-stellige Kontonummern
+            ersteZiffer = kontonummer[0]
+            if ersteZiffer == '1':
+                return "Inventurkonten"
+            elif ersteZiffer == '2':
+                return "Forderungen und Geldmittel"
+            elif ersteZiffer == '3':
+                return "Verbindlichkeiten"
+            elif ersteZiffer == '4':
+                return "Erlöskonten"
+            elif ersteZiffer == '5':
+                return "Materialaufwand"
+            elif ersteZiffer == '6':
+                return "Personalaufwand"
+            elif ersteZiffer == '7':
+                return "Sonstiger Aufwand"
+        elif laenge == 4:  # Für 4-stellige Kontonummern
+            return "Anlagevermögen"
+        # Standardüberschrift für alle anderen Fälle
+        return "Andere Konten"
+
+    def insertHeaderRow(self, ueberschrift, position):
+            # Füge eine neue Zeile für die Überschrift ein
+            self.table.insertRow(position)
+            # Erstelle ein QTableWidgetItem für die Überschrift
+            headerItem = QTableWidgetItem(ueberschrift)
+            # Setze die Eigenschaften des Überschriften-Items
+            headerItem.setBackground(Qt.gray)  # Hintergrundfarbe der Überschrift
+            headerItem.setForeground(Qt.black)  # Textfarbe
+            headerItem.setTextAlignment(Qt.AlignCenter)  # Zentrierte Ausrichtung des Textes
+            headerItem.setFlags(Qt.ItemIsEnabled)  # Überschrift nicht anklickbar machen
+            headerItem.setFlags(headerItem.flags() & ~Qt.ItemIsSelectable)  # Disable selection
+            # Füge das Überschriften-Item in die Tabelle ein
+            self.table.setItem(position, 0, headerItem)
+            # Spanne das Überschriften-Item über alle Spalten der Tabelle
+            self.table.setSpan(position, 0, 1, self.table.columnCount())
+
+    def acceptOnDoubleClick(self, item):
+        # Check if the double-clicked item is a header item
+        if item.row() < 0:
+            return
+        # If it's not a header item, proceed with the default double-click action
+        self.accept()
+
+    def accept(self):
+        selectedItems = self.table.selectedItems()
+        if selectedItems:
+            self.selectedKontonummer = selectedItems[0].text()  # Nehmen Sie an, dass die erste Spalte die Kontonummer enthält
+        super().accept()
+
+
+class KeyEventFilter(QObject):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+
+    def eventFilter(self, watched, event):
+        if event.type() == QEvent.KeyPress and event.key() == Qt.Key_F4:
+            # Finden Sie heraus, ob die aktuelle Zelle die Kontonummer-Zelle ist
+            if isinstance(watched, QTableWidget):
+                currentRow = watched.currentRow()
+                currentColumn = watched.currentColumn()
+                if currentColumn == 3:  # Angenommen, Spalte 3 ist die Kontonummerspalte
+                    # Korrigieren Sie dies, um sowohl die Zeile als auch die Spalte zu übergeben
+                    self.parent().openKontoplanDialog(currentRow, currentColumn)  # Fügen Sie hier die Spaltennummer hinzu
+            return True
+        return super().eventFilter(watched, event)
+
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
