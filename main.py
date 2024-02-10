@@ -34,6 +34,7 @@ class Hauptfenster(QMainWindow):
     def __init__(self):
         super().__init__()
         self.initUI()
+        self.loadUserPreferences()
         self.oldPos = None
         self.isAddingRow = False
         self.buchungstabelle.cellChanged.connect(self.handleCellChange)
@@ -170,16 +171,16 @@ class Hauptfenster(QMainWindow):
         vorerfassung_layout.addWidget(self.addRowButton)
         layout.addLayout(einstiegsdaten_layout)
         layout.addLayout(vorerfassung_layout)
-        # Button-Layout für "Beenden" Button
+        # Button-Layout für "Export" Button
         button_layout = QVBoxLayout()
         layout.addLayout(button_layout)
-        self.beendenButton = QPushButton("Beenden")
-        self.beendenButton.clicked.connect(self.closeApplication)
-        self.beendenButton.setStyleSheet("QPushButton { background-color: red; color: white; font-weight: bold; }")
-        button_layout.addWidget(self.beendenButton)
+        self.exportButton = QPushButton("Export")
+        #self.exportButton.clicked.connect(self.exportData)  # Hier sollten Sie die entsprechende Exportfunktion anstelle von self.closeApplication einfügen
+        self.exportButton.setObjectName("exportButton")
+        button_layout.addWidget(self.exportButton)
         #Stylesheet Import
-        stylesheet = self.loadStylesheet("style.css")
-        self.setStyleSheet(stylesheet)
+        #stylesheet = self.loadStylesheet("style.css")
+        #self.setStyleSheet(stylesheet)
 
     def loadStylesheet(self, filename):
         try:
@@ -188,6 +189,34 @@ class Hauptfenster(QMainWindow):
         except Exception as e:
             print(f"Fehler beim Laden des Stylesheets: {e}")
             return ""
+
+    def loadUserPreferences(self):
+            try:
+                with open('user_settings.json', 'r') as config_file:
+                    config = json.load(config_file)
+                    stylesheetName = config.get("stylesheet")
+                    if stylesheetName:
+                        self.applyStylesheetByName(stylesheetName)
+            except FileNotFoundError:
+                print("Keine Benutzereinstellungen gefunden. Standard-Stylesheet wird verwendet.")
+            except json.JSONDecodeError:
+                print("Fehler beim Lesen der Benutzereinstellungen. Standard-Stylesheet wird verwendet.")
+
+    def applyStylesheetByName(self, stylesheetName):
+        stylesheetNameToPathMapping = {
+            "Hell": "styles/light.css",
+            "Dunkel": "styles/dark.css",
+            "Klassisch": "styles/classic.css"
+        }
+        stylesheetPath = stylesheetNameToPathMapping.get(stylesheetName)
+        if stylesheetPath:
+            absoluteStylesheetPath = os.path.join(os.path.dirname(__file__), stylesheetPath)
+            try:
+                with open(absoluteStylesheetPath, "r") as f:
+                    newStylesheet = f.read()
+                    self.setStyleSheet(newStylesheet)
+            except Exception as e:
+                print(f"Fehler beim Laden des Stylesheets: {e}")
 
     def loadKontoplan(self):
         try:
@@ -614,38 +643,45 @@ class SettingsWindow(QDialog):
         self.setLayout(layout)
 
     def applyStylesheet(self):
-        selectedStylesheetName = self.stylesheetComboBox.currentText()
-        # Mapping von Stylesheet-Namen zu Pfaden
-        stylesheetNameToPathMapping = {
-            "Hell": "styles/light.css",
-            "Dunkel": "styles/dark.css",
-            "Klassisch": "styles/classic.css"
-        }
-        # Zugriff auf den Pfad des ausgewählten Stylesheets mithilfe des Mappings
-        stylesheetPath = stylesheetNameToPathMapping.get(selectedStylesheetName)
-        if stylesheetPath:
-            # Pfad zu einem absoluten Pfad umwandeln, falls notwendig
-            absoluteStylesheetPath = os.path.join(os.path.dirname(__file__), stylesheetPath)
-            try:
-                with open(absoluteStylesheetPath, "r") as f:
-                    newStylesheet = f.read()
-                    self.parent().setStyleSheet(newStylesheet)
-            except Exception as e:
-                print(f"Fehler beim Laden des Stylesheets: {e}")
-        else:
-            print(f"Stylesheet {selectedStylesheetName} nicht gefunden.")
+            selectedStylesheetName = self.stylesheetComboBox.currentText()
+            stylesheetNameToPathMapping = {
+                "Hell": "styles/light.css",
+                "Dunkel": "styles/dark.css",
+                "Klassisch": "styles/classic.css"
+            }
+            stylesheetPath = stylesheetNameToPathMapping.get(selectedStylesheetName)
+            if stylesheetPath:
+                absoluteStylesheetPath = os.path.join(os.path.dirname(__file__), stylesheetPath)
+                try:
+                    with open(absoluteStylesheetPath, "r") as f:
+                        newStylesheet = f.read()
+                        self.parent().setStyleSheet(newStylesheet)
+                        # Speichern der Auswahl
+                        self.saveUserPreference(selectedStylesheetName)
+                except Exception as e:
+                    print(f"Fehler beim Laden des Stylesheets: {e}")
+            else:
+                print(f"Stylesheet {selectedStylesheetName} nicht gefunden.")
+
+    def saveUserPreference(self, stylesheetName):
+        config = {"stylesheet": stylesheetName}
+        with open('user_settings.json', 'w') as config_file:
+            json.dump(config, config_file, indent=4)
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
     QLocale.setDefault(QLocale(QLocale.German, QLocale.Germany))
-    # Lade die Schriftart
-    fontPath = "./fonts/ProtestRiot-Regular.ttf"
-    fontId = QFontDatabase.addApplicationFont(fontPath)
-    if fontId != -1:
-        fontFamilies = QFontDatabase.applicationFontFamilies(fontId)
-        print("Geladene Schriftartenfamilien:", fontFamilies)
-    else:
-        print("Fehler beim Laden der Schriftart")
+    # Verzeichnis in dem sich Schriftarten befinden
+    font_directory = "./fonts"
+    for file in os.listdir(font_directory):
+        if file.endswith(".ttf"):
+            font_path = os.path.join(font_directory, file)
+            font_id = QFontDatabase.addApplicationFont(font_path)
+            if font_id != -1:
+                font_families = QFontDatabase.applicationFontFamilies(font_id)
+                print("Geladene Schriftartenfamilien:", font_families)
+            else:
+                print(f"Fehler beim Laden der Schriftart: {font_path}")
     fenster = Hauptfenster()
     fenster.start()
     sys.exit(app.exec_())
