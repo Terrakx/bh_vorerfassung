@@ -2,10 +2,11 @@ import sys
 import os
 import shutil
 import json
-from PyQt5.QtWidgets import QApplication, QMainWindow, QFrame, QDialog, QWidget, QVBoxLayout, QLabel, QComboBox, QHBoxLayout, QTableWidget, QTableWidgetItem, QPushButton, QHeaderView, QGridLayout, QDateEdit, QMessageBox, QStyledItemDelegate, QLineEdit
-from PyQt5.QtGui import QRegExpValidator, QFont, QFontDatabase, QIcon, QColor
-from PyQt5.QtCore import Qt, QRegExp, QLocale, QObject, QEvent
+from PyQt5.QtWidgets import QApplication, QMainWindow, QFrame, QDialog, QWidget, QVBoxLayout, QLabel, QComboBox, QHBoxLayout, QTableWidget, QTableWidgetItem, QPushButton, QHeaderView, QGridLayout, QDateEdit, QMessageBox, QStyledItemDelegate, QLineEdit, QDialogButtonBox
+from PyQt5.QtGui import QRegExpValidator, QFontDatabase, QIcon, QColor, QFont
+from PyQt5.QtCore import Qt, QRegExp, QLocale, QObject, QEvent, QTextStream, QFile
 from PyQt5.QtCore import QSignalBlocker
+from sort_json import sortiere_und_speichere_json
 
 # -*- coding: utf-8 -*-
 
@@ -233,9 +234,16 @@ class Hauptfenster(QMainWindow):
         try:
             with open('kontoplan.json', 'r', encoding='utf-8') as file:
                 self.kontoplan_data = json.load(file)
+            self.updateKontobezeichnungForAllRows()  # Diese Methode muss implementiert werden
         except Exception as e:
             QMessageBox.critical(self, "Fehler beim Laden des Kontoplans", f"Ein Fehler ist aufgetreten: {e}")
             self.kontoplan_data = {"Kontoplan": []}  # Set an empty Kontoplan as a fallback
+
+    def updateKontobezeichnungForAllRows(self):
+        for row in range(self.buchungstabelle.rowCount()):
+            kontonummer_item = self.buchungstabelle.item(row, 3)  # Kontonummer
+            if kontonummer_item:
+                self.updateKontobezeichnung(row, 3)  # Aktualisiere jede Zeile basierend auf der Kontonummer
 
     # Add this slot function to your Hauptfenster class
     def updateKontobezeichnung(self, row, column):
@@ -635,8 +643,6 @@ class Hauptfenster(QMainWindow):
             if item:
                 item.setText(dialog.selectedKontonummer)
 
-
-
     def openSettingsDialog(self):
             dialog = SettingsWindow(self)
             dialog.exec_()
@@ -720,10 +726,14 @@ class SettingsWindow(QDialog):
 class KontoplanDialog(QDialog):
     def __init__(self, kontoplanName="Standard", parent=None):
         super().__init__(parent)
+        self.kontoplanName = kontoplanName
         self.setWindowTitle("Kontoplan")
         self.resize(900, 700)  # Fenstergröße anpassen
+        self.setStyleSheet(open("styles/styles_kontoplan.css").read())
         self.layout = QVBoxLayout(self)
-
+        # QLabel für den geladenen Kontoplan-Namen
+        self.loadedKontoplanLabel = QLabel(f"Geladener Kontoplan: {kontoplanName}")
+        self.layout.addWidget(self.loadedKontoplanLabel)
         # Tabelle für Kontoplan
         self.table = QTableWidget(self)
         self.table.setColumnCount(4)
@@ -736,6 +746,11 @@ class KontoplanDialog(QDialog):
         self.table.setEditTriggers(QTableWidget.NoEditTriggers)  # Bearbeitung deaktivieren
         self.table.doubleClicked.connect(self.acceptOnDoubleClick)  # Doppelklick-Ereignis
         self.layout.addWidget(self.table)
+
+        # Button für Neues Konto hinzufügen
+        self.newKontoButton = QPushButton("Neues Konto hinzufügen")
+        self.newKontoButton.clicked.connect(self.addNewKonto)
+        self.layout.addWidget(self.newKontoButton)
 
         # Button-Leiste hinzufügen
         self.buttonLayout = QHBoxLayout()
@@ -751,6 +766,7 @@ class KontoplanDialog(QDialog):
         self.loadKontoplan(kontoplanName)
 
     def loadKontoplan(self, kontoplanName):
+        self.table.setRowCount(0)  # Löscht alle vorhandenen Zeilen in der Tabelle
         try:
             with open('kontoplan.json', 'r', encoding='utf-8') as file:
                 data = json.load(file)
@@ -773,7 +789,10 @@ class KontoplanDialog(QDialog):
                             self.table.setItem(row_position, 0, QTableWidgetItem(konto["Kontonummer"]))
                             self.table.setItem(row_position, 1, QTableWidgetItem(konto["Bezeichnung"]))
                             self.table.setItem(row_position, 2, QTableWidgetItem(konto.get("StC", "")))
-                            self.table.setItem(row_position, 3, QTableWidgetItem(str(konto.get("Prozent", 0.0))))
+                            prozent = konto.get("Prozent")
+                            prozent_str = "" if prozent == 0.0 else str(prozent)
+                            self.table.setItem(row_position, 3, QTableWidgetItem(prozent_str))
+
                         break
                 if not kontenGefunden:
                     print(f"Keine Konten für den Kontenplan '{kontoplanName}' gefunden.")
@@ -800,6 +819,10 @@ class KontoplanDialog(QDialog):
                 return "Personalaufwand"
             elif ersteZiffer == '7':
                 return "Sonstiger Aufwand"
+            elif ersteZiffer == '8':
+                return "Finanzergebnis"
+            elif ersteZiffer == '9':
+                return "Kapitalkonten"
         elif laenge == 4:  # Für 4-stellige Kontonummern
             return "Anlagevermögen"
         # Standardüberschrift für alle anderen Fälle
@@ -811,8 +834,8 @@ class KontoplanDialog(QDialog):
             # Erstelle ein QTableWidgetItem für die Überschrift
             headerItem = QTableWidgetItem(ueberschrift)
             # Setze die Eigenschaften des Überschriften-Items
-            headerItem.setBackground(Qt.gray)  # Hintergrundfarbe der Überschrift
-            headerItem.setForeground(Qt.black)  # Textfarbe
+            headerItem.setBackground(QColor("#5a56ff"))  # Hintergrundfarbe der Überschrift
+            headerItem.setForeground(Qt.white)  # Textfarbe
             headerItem.setTextAlignment(Qt.AlignCenter)  # Zentrierte Ausrichtung des Textes
             headerItem.setFlags(Qt.ItemIsEnabled)  # Überschrift nicht anklickbar machen
             headerItem.setFlags(headerItem.flags() & ~Qt.ItemIsSelectable)  # Disable selection
@@ -827,6 +850,82 @@ class KontoplanDialog(QDialog):
             return
         # If it's not a header item, proceed with the default double-click action
         self.accept()
+
+    def addNewKonto(self):
+        dialog = QDialog(self)
+        dialog.setWindowTitle("Neues Konto hinzufügen")
+
+        layout = QVBoxLayout(dialog)
+
+        kontonummerLineEdit = QLineEdit()
+        kontonummerLineEdit.setPlaceholderText("Kontonummer")
+        layout.addWidget(kontonummerLineEdit)
+
+        bezeichnungLineEdit = QLineEdit()
+        bezeichnungLineEdit.setPlaceholderText("Bezeichnung")
+        layout.addWidget(bezeichnungLineEdit)
+
+        steuercodeLineEdit = QLineEdit()
+        steuercodeLineEdit.setPlaceholderText("Steuercode")
+        layout.addWidget(steuercodeLineEdit)
+
+        prozentLineEdit = QLineEdit()
+        prozentLineEdit.setPlaceholderText("Prozent")
+        layout.addWidget(prozentLineEdit)
+
+        buttonBox = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
+        buttonBox.accepted.connect(dialog.accept)
+        buttonBox.rejected.connect(dialog.reject)
+        layout.addWidget(buttonBox)
+
+        if dialog.exec_() == QDialog.Accepted:
+            kontonummer = kontonummerLineEdit.text()
+            bezeichnung = bezeichnungLineEdit.text()
+            steuercode = steuercodeLineEdit.text()
+            prozent = prozentLineEdit.text()
+
+            # Add the new Konto to the table
+            row_position = self.table.rowCount()
+            self.table.insertRow(row_position)
+            self.table.setItem(row_position, 0, QTableWidgetItem(kontonummer))
+            self.table.setItem(row_position, 1, QTableWidgetItem(bezeichnung))
+            self.table.setItem(row_position, 2, QTableWidgetItem(steuercode))
+            self.table.setItem(row_position, 3, QTableWidgetItem(prozent))
+            # Save the new Konto to the JSON file
+            try:
+                with open('kontoplan.json', 'r', encoding='utf-8') as file:
+                    data = json.load(file)
+            except FileNotFoundError:
+                data = {"Kontoplan": []}
+
+            kontoplanName = "Standard"  # Modify this if needed
+            for kontoplan in data["Kontoplan"]:
+                if kontoplan["KontenplanName"] == kontoplanName:
+                    kontoplan["Konten"].append({
+                        "Kontonummer": kontonummer,
+                        "Bezeichnung": bezeichnung,
+                        "StC": steuercode,
+                        "Prozent": float(prozent) if prozent else 0.0
+                    })
+                    break
+            else:
+                data["Kontoplan"].append({
+                    "KontenplanName": kontoplanName,
+                    "Konten": [{
+                        "Kontonummer": kontonummer,
+                        "Bezeichnung": bezeichnung,
+                        "StC": steuercode,
+                        "Prozent": float(prozent) if prozent else 0.0
+                    }]
+                })
+
+            with open('kontoplan.json', 'w', encoding='utf-8') as file:
+                json.dump(data, file, indent=4)
+            sortiere_und_speichere_json('kontoplan.json')
+            self.loadKontoplan(self.kontoplanName)
+            self.parent().loadKontoplan()  # Neu laden des Kontoplans im Hauptfenster
+            
+
 
     def accept(self):
         selectedItems = self.table.selectedItems()
@@ -850,7 +949,6 @@ class KeyEventFilter(QObject):
                     self.parent().openKontoplanDialog(currentRow, currentColumn)  # Fügen Sie hier die Spaltennummer hinzu
             return True
         return super().eventFilter(watched, event)
-
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
