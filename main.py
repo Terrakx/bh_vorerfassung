@@ -6,6 +6,7 @@ from PyQt5.QtWidgets import QApplication, QMainWindow, QFrame, QDialog, QWidget,
 from PyQt5.QtGui import QRegExpValidator, QFontDatabase, QIcon, QColor, QFont
 from PyQt5.QtCore import Qt, QRegExp, QLocale, QObject, QEvent, QTextStream, QFile
 from PyQt5.QtCore import QSignalBlocker
+from PyQt5.QtMultimedia import QSound
 from sort_json import sortiere_und_speichere_json
 
 # -*- coding: utf-8 -*-
@@ -734,6 +735,7 @@ class KontoplanDialog(QDialog):
         # QLabel für den geladenen Kontoplan-Namen
         self.loadedKontoplanLabel = QLabel(f"Geladener Kontoplan: {kontoplanName}")
         self.layout.addWidget(self.loadedKontoplanLabel)
+        self.loadedKontoplanLabel.setObjectName("loadedKontoplanLabel")
         # Tabelle für Kontoplan
         self.table = QTableWidget(self)
         self.table.setColumnCount(4)
@@ -857,21 +859,63 @@ class KontoplanDialog(QDialog):
 
         layout = QVBoxLayout(dialog)
 
+        sectionHeaderLabelPflichtfeld = QLabel("Pflichtfelder")
+        sectionHeaderLabelPflichtfeld.setObjectName("sectionHeaderLabel_pflichtfelder")
+        layout.addWidget(sectionHeaderLabelPflichtfeld)
+
+        # Kontonummer
+        kontonummerLayout = QHBoxLayout()
+        kontonummerLabel = QLabel("Kontonummer:")
+        kontonummerLabel.setObjectName("kontonummerLabel")  # CSS Name
         kontonummerLineEdit = QLineEdit()
         kontonummerLineEdit.setPlaceholderText("Kontonummer")
-        layout.addWidget(kontonummerLineEdit)
+        kontonummerLineEdit.setObjectName("kontonummerLineEdit")
+        kontonummerLineEdit.editingFinished.connect(lambda: self.validateKontonummer(kontonummerLineEdit, dialog))
+        kontonummerLayout.addWidget(kontonummerLabel)
+        kontonummerLayout.addWidget(kontonummerLineEdit)
+        kontonummerLineEdit.setFixedWidth(200)  # Set the width as needed
+        layout.addLayout(kontonummerLayout)
 
+        # Bezeichnung
+        bezeichnungLayout = QHBoxLayout()
+        bezeichnungLabel = QLabel("Bezeichnung:")
+        bezeichnungLabel.setObjectName("bezeichnungLabel")  # CSS Name
         bezeichnungLineEdit = QLineEdit()
         bezeichnungLineEdit.setPlaceholderText("Bezeichnung")
-        layout.addWidget(bezeichnungLineEdit)
+        bezeichnungLineEdit.setObjectName("bezeichnungLineEdit")
+        # Keine direkte Validierung für Bezeichnung, da "egal"
+        bezeichnungLayout.addWidget(bezeichnungLabel)
+        bezeichnungLayout.addWidget(bezeichnungLineEdit)
+        bezeichnungLineEdit.setFixedWidth(200)  # Set the width as needed
+        layout.addLayout(bezeichnungLayout)
 
+        sectionHeaderLabelOptional = QLabel("Optional")
+        sectionHeaderLabelOptional.setObjectName("sectionHeaderLabel_optional")
+        layout.addWidget(sectionHeaderLabelOptional)
+
+        # Steuercode
+        steuercodeLayout = QHBoxLayout()
+        steuercodeLabel = QLabel("Steuercode:")
+        steuercodeLabel.setObjectName("steuercodeLabel")  # CSS Name
         steuercodeLineEdit = QLineEdit()
         steuercodeLineEdit.setPlaceholderText("Steuercode")
-        layout.addWidget(steuercodeLineEdit)
+        steuercodeLineEdit.editingFinished.connect(lambda: self.validateSteuercode(steuercodeLineEdit, dialog))
+        steuercodeLayout.addWidget(steuercodeLabel)
+        steuercodeLayout.addWidget(steuercodeLineEdit)
+        steuercodeLineEdit.setFixedWidth(200)  # Set the width as needed
+        layout.addLayout(steuercodeLayout)
 
+        # Prozent
+        prozentLayout = QHBoxLayout()
+        prozentLabel = QLabel("Prozent:")
+        prozentLabel.setObjectName("prozentLabel")  # CSS Name
         prozentLineEdit = QLineEdit()
         prozentLineEdit.setPlaceholderText("Prozent")
-        layout.addWidget(prozentLineEdit)
+        prozentLineEdit.editingFinished.connect(lambda: self.validateProzent(prozentLineEdit, dialog))
+        prozentLayout.addWidget(prozentLabel)
+        prozentLayout.addWidget(prozentLineEdit)
+        prozentLineEdit.setFixedWidth(200)  # Set the width as needed
+        layout.addLayout(prozentLayout)
 
         buttonBox = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
         buttonBox.accepted.connect(dialog.accept)
@@ -883,7 +927,6 @@ class KontoplanDialog(QDialog):
             bezeichnung = bezeichnungLineEdit.text()
             steuercode = steuercodeLineEdit.text()
             prozent = prozentLineEdit.text()
-
             # Add the new Konto to the table
             row_position = self.table.rowCount()
             self.table.insertRow(row_position)
@@ -925,7 +968,25 @@ class KontoplanDialog(QDialog):
             self.loadKontoplan(self.kontoplanName)
             self.parent().loadKontoplan()  # Neu laden des Kontoplans im Hauptfenster
             
+    def validateKontonummer(self, lineEdit, dialog):
+        kontonummer = lineEdit.text()
+        # Validierung der Kontonummer, z.B. Prüfung auf Länge oder bestimmte Zeichen
+        if len(kontonummer) < 5:
+            QMessageBox.warning(dialog, "Ungültige Kontonummer", "Die Kontonummer muss mindestens 5 Zeichen lang sein.")
+            lineEdit.clear()
+            lineEdit.setFocus()
+        else:
+            lineEdit.setObjectName("kontonummerLineEdit_success")  # Objektname ändern nach erfolgreicher Validierung
+            lineEdit.setStyleSheet("")  # Clear any previous styles 
+            lineEdit.update()
 
+
+    def validateProzent(self, lineEdit, dialog):
+        text = lineEdit.text()
+        valid_prozent = ['', '10', '13', '20']
+        if text not in valid_prozent:
+            QMessageBox.warning(dialog, "Ungültige Eingabe", "Prozent muss entweder leer, 10, 13 oder 20 sein.")
+            lineEdit.setFocus()
 
     def accept(self):
         selectedItems = self.table.selectedItems()
