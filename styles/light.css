@@ -2,8 +2,8 @@
 
 QMainWindow {
     font-family: 'Sergio UI', sans-serif;
-    background-color: #ffffff;
-    color: #000000;
+    background-color: #fff; /* Hintergrundfarbe des Dialogfensters */
+    color: #333; /* Schriftfarbe */
     font-size: 18px; /* Erhöhung der Schriftgröße */
 }
 
@@ -11,22 +11,22 @@ QLabel {
     color: #000000;
     font-size: 16px; /* Erhöhung der Schriftgröße */
 }
-
 /* Style für Überschriften */
 QLabel#EinstiegsdatenLabel, QLabel#VorerfassungLabel {
     font-family: 'Protest Riot', sans-serif; /* Setze die Schriftart */
     font-size: 20px; /* Größere Schrift für Überschriften */
     font-weight: bold; /* Fett gedruckt */
-    color: #10009c; /* Helle Schriftfarbe, falls gewünscht */
+    color: #3f3da1; /* Helle Schriftfarbe, falls gewünscht */
 }
 
 QComboBox {
-    background-color: #cfcfcf; /* Dunkles Dropdown-Menü */
-    color: #000000;
+    background-color: #3f3da1; /* Dunkles Dropdown-Menü */
+    color: #ffffff;
     border-radius: 10px;
     padding: 5px;
     min-height: 25px;
     font-size: 16px; /* Erhöhung der Schriftgröße */
+    border-radius: 5px;
 }
 
 QComboBox::drop-down {
@@ -46,26 +46,21 @@ QComboBox::down-arrow {
 
 QTableWidget {
     color: #000000;
+    font-family: 'Montserrat', sans-serif; /* Schriftart */
     background-color: #ffffff;
-    gridline-color: #2e2e2e;
+    gridline-color: #3e3f4b;
     border-radius: 5px;
     font-size: 16px;
 }
-/*
-QTableWidget::item {
-    color: #d5d6da;
-    padding: 15px;
-    border-color: #3e3f4b;
-    font-size: 16px;
-}
-*/
+
 QTableWidget QHeaderView::section {
-    background-color: #10009c;
+    background-color: #3f3da1;
     color: #fff;
     padding-left: 4px;
     border: 1px solid #3e3f4b;
     spacing: 10px;
     font-size: 16px;
+    font-weight: bold; /* Fettschrift */
 }
 
 QTableWidget QHeaderView {
@@ -73,13 +68,14 @@ QTableWidget QHeaderView {
     color: #d5d6da;
 }
 
+
 QTableWidget::item:selected {
-    background-color: #adadad;
+    background-color: #3f3da1;
     color: #fff;
 }
 
 QPushButton {
-    background-color: #10009c;
+    background-color: #3f3da1;
     color: #e6e6e6;
     border-radius: 2px;
     padding: 5px;
@@ -88,7 +84,7 @@ QPushButton {
 }
 
 QPushButton:hover {
-    background-color: #3d27ff;
+    background-color: #140180;
 }
 
 QLineEdit {
