@@ -1,0 +1,65 @@
+/* table_styles.css */
+
+/* Styles für das gesamte Dialogfenster */
+QDialog {
+    background-color: #fff; /* Hintergrundfarbe des Dialogfensters */
+    color: #333; /* Schriftfarbe */
+}
+
+QLabel {
+    background-color: #3f3da1; /* Hintergrundfarbe */
+    padding: 5px; /* Innenabstand */
+    border: 1px solid #3d3d3d; /* Rahmen */
+    font-weight: bold; /* Fettschrift */
+    font-family: 'Montserrat', sans-serif; /* Schriftart */
+    color: rgb(255, 255, 255); /* Schriftfarbe */
+}
+
+QTableWidget {
+    color: #000000;
+    font-family: 'Montserrat', sans-serif; /* Schriftart */
+    background-color: #ffffff;
+    gridline-color: #3e3f4b;
+    border-radius: 5px;
+    font-size: 16px;
+}
+/*
+QTableWidget::item {
+    color: #d5d6da;
+    padding: 15px;
+    border-color: #3e3f4b;
+    font-size: 16px;
+}
+*/
+QTableWidget QHeaderView::section {
+    background-color: #3f3da1;
+    color: #fff;
+    padding-left: 4px;
+    border: 1px solid #3e3f4b;
+    spacing: 10px;
+    font-size: 16px;
+    font-weight: bold; /* Fettschrift */
+}
+
+QTableWidget QHeaderView {
+    background-color: #ffffff;
+    color: #d5d6da;
+}
+
+QTableWidget::item:selected {
+    background-color: #3f3da1;
+    color: #fff;
+}
+
+QPushButton {
+    background-color: #3f3da1;
+    color: #e6e6e6;
+    border-radius: 2px;
+    padding: 5px;
+    border: none;
+    font-size: 16px; /* Erhöhung der Schriftgröße */
+}
+
+QPushButton:hover {
+    background-color: #140180;
+}

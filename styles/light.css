@@ -1,0 +1,109 @@
+/* styles.css */
+
+QMainWindow {
+    font-family: 'Sergio UI', sans-serif;
+    background-color: #ffffff;
+    color: #000000;
+    font-size: 18px; /* Erhöhung der Schriftgröße */
+}
+
+QLabel {
+    color: #000000;
+    font-size: 16px; /* Erhöhung der Schriftgröße */
+}
+
+/* Style für Überschriften */
+QLabel#EinstiegsdatenLabel, QLabel#VorerfassungLabel {
+    font-family: 'Protest Riot', sans-serif; /* Setze die Schriftart */
+    font-size: 20px; /* Größere Schrift für Überschriften */
+    font-weight: bold; /* Fett gedruckt */
+    color: #10009c; /* Helle Schriftfarbe, falls gewünscht */
+}
+
+QComboBox {
+    background-color: #cfcfcf; /* Dunkles Dropdown-Menü */
+    color: #000000;
+    border-radius: 10px;
+    padding: 5px;
+    min-height: 25px;
+    font-size: 16px; /* Erhöhung der Schriftgröße */
+}
+
+QComboBox::drop-down {
+    subcontrol-origin: padding;
+    subcontrol-position: top right;
+    width: 25px;
+    border-left-width: 1px;
+    border-left-color: darkgray;
+    border-left-style: solid;
+    border-top-right-radius: 3px;
+    border-bottom-right-radius: 3px;
+}
+
+QComboBox::down-arrow {
+    image: url('img/down.png');
+}
+
+QTableWidget {
+    color: #000000;
+    background-color: #ffffff;
+    gridline-color: #2e2e2e;
+    border-radius: 5px;
+    font-size: 16px;
+}
+/*
+QTableWidget::item {
+    color: #d5d6da;
+    padding: 15px;
+    border-color: #3e3f4b;
+    font-size: 16px;
+}
+*/
+QTableWidget QHeaderView::section {
+    background-color: #10009c;
+    color: #fff;
+    padding-left: 4px;
+    border: 1px solid #3e3f4b;
+    spacing: 10px;
+    font-size: 16px;
+}
+
+QTableWidget QHeaderView {
+    background-color: #ffffff;
+    color: #d5d6da;
+}
+
+QTableWidget::item:selected {
+    background-color: #adadad;
+    color: #fff;
+}
+
+QPushButton {
+    background-color: #10009c;
+    color: #e6e6e6;
+    border-radius: 2px;
+    padding: 5px;
+    border: none;
+    font-size: 16px; /* Erhöhung der Schriftgröße */
+}
+
+QPushButton:hover {
+    background-color: #3d27ff;
+}
+
+QLineEdit {
+    background-color: #2E2E2E; 
+    color: #FFFFFF; 
+    border: 2px solid #555555; 
+    border-radius: 5px; 
+    padding: 5px;
+}
+
+QLineEdit:focus {
+    border: 2px solid #4285F4; 
+}
+
+QLineEdit:disabled {
+    background-color: #3c3c3c;
+    color: #787878;
+}
