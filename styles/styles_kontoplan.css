@@ -6,13 +6,51 @@ QDialog {
     color: #333; /* Schriftfarbe */
 }
 
-QLabel {
+QLabel#loadedKontoplanLabel {
     background-color: #3f3da1; /* Hintergrundfarbe */
     padding: 5px; /* Innenabstand */
     border: 1px solid #3d3d3d; /* Rahmen */
     font-weight: bold; /* Fettschrift */
     font-family: 'Montserrat', sans-serif; /* Schriftart */
     color: rgb(255, 255, 255); /* Schriftfarbe */
+}
+
+QLabel#kontonummerLabel, QLabel#bezeichnungLabel, QLabel#steuercodeLabel, QLabel#prozentLabel {
+    background-color: #ffffff; /* Hintergrundfarbe */
+    padding: 5px; /* Innenabstand */
+    border: 1px solid #ffffff; /* Rahmen */
+    font-family: 'Montserrat', sans-serif; /* Schriftart */
+    color: rgb(0, 0, 0); /* Schriftfarbe */
+}
+
+QLabel#sectionHeaderLabel_optional, QLabel#sectionHeaderLabel_pflichtfelder {
+    color: rgb(54, 54, 54); /* Schriftfarbe */
+    font-family: 'Montserrat ExtraBold', sans-serif; /* Schriftart */
+    font-size: 12px
+}
+
+QLabel {
+    color: red; /* Schriftfarbe für Fehlermeldungen */
+    font-family: 'Montserrat', sans-serif;
+    font-size: 18px
+}
+
+QLineEdit {
+    background-color: #8b89ff; /* Hintergrundfarbe */
+    padding: 5px; /* Innenabstand */
+    border: 1px solid #3f3da1; /* Rahmen */
+    font-family: 'Montserrat', sans-serif; /* Schriftart */
+    color: rgb(0, 0, 0); /* Schriftfarbe */
+    font-size: 14px;
+}
+
+QLineEdit#kontonummerLineEdit_success {
+    background-color: #5eff00; /* Hintergrundfarbe */
+    padding: 5px; /* Innenabstand */
+    border: 1px solid #3f3da1; /* Rahmen */
+    font-family: 'Montserrat', sans-serif; /* Schriftart */
+    color: rgb(0, 0, 0); /* Schriftfarbe */
+    font-size: 14px;
 }
 
 QTableWidget {
@@ -23,14 +61,7 @@ QTableWidget {
     border-radius: 5px;
     font-size: 16px;
 }
-/*
-QTableWidget::item {
-    color: #d5d6da;
-    padding: 15px;
-    border-color: #3e3f4b;
-    font-size: 16px;
-}
-*/
+
 QTableWidget QHeaderView::section {
     background-color: #3f3da1;
     color: #fff;
